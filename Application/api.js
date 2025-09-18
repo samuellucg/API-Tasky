@@ -47,12 +47,16 @@ app.get("/tasks", async (req,res) => {
     }
 });
 
+app.get("/tasks/healthcheck", async (req,res) => {
+    return res.sendStatus(200);
+})
+
 app.post("/tasks", async (req,res) => {
     try{
         tasks = await ReadAndReturnJson() || tasks;
         if (tasks != null || tasks != undefined){
             tasks.push(req.body);
-            await fs.writeFile(FILENAME,JSON.stringify(tasks));     
+            await fs.writeFile(FILENAME,JSON.stringify(tasks));   
             return res.json(tasks).status(200);
         }
 
