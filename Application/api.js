@@ -94,14 +94,14 @@ app.put("/tasks", async (req,res) => {
             toSave.TaskName = req.body.TaskName;
             toSave.TaskDesc = req.body.TaskDesc;
             toSave.HourTask = req.body.HourTask;
-            // ADD NOTIFY FIELD
+            toSave.NotifyTask = req.body.NotifyTask;
             
             tasks.forEach(async element => {
                 if(element.TaskId == Number(req.query.taskId)){
                     element.TaskName = toSave.TaskName;
                     element.TaskDesc = toSave.TaskDesc;
                     element.HourTask = toSave.HourTask;
-                    // ADD NOTIFY FIELD
+                    element.NotifyTask = toSave.NotifyTask;
                     await fs.writeFile(FILENAME,JSON.stringify(tasks));
                     return res.status(200).send("OK");
                 } 
