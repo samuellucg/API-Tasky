@@ -126,30 +126,37 @@ async function startApi(){
 
 async function ReadAndReturnJson(){
     try {
-        // BUG WHEN database.json it's empty...
-        if(fsSync.existsSync(FILENAME)){        
-            var flag = await CompareFile();        
-            if (flag){
-                const data = await fs.readFile(FILENAME,'utf8');
-                return JSON.parse(data);
+        if(fsSync.existsSync(FILENAME)){       
+            var fileSize =  await fs.stat(FILENAME).then(x => x.size);
+            if(fileSize > 0){
+                var flag = await CompareFile();        
+                if (flag){
+                    const data = await fs.readFile(FILENAME,'utf8');
+                    return JSON.parse(data);
+                }
+            }
+            else{
+                DataIntoDatabase();
             }
         }
 
-        else{            
-            console.log(`${FILENAME} don't exist, creating...`);
-            const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
-                "IsEditingTask": false, "CanChange": true
-            }];
-
-            fs.writeFile(FILENAME,JSON.stringify(firstObject));        
-            console.log(`${FILENAME} created.`);
-        }
+        else
+            DataIntoDatabase();
     } 
 
     catch (error) {
         throw error; 
     }
     
+}
+
+async function DataIntoDatabase(){
+    console.log(`${FILENAME} don't exist, creating...`);
+    const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
+        "IsEditingTask": false, "CanChange": true
+    }]
+    fs.writeFile(FILENAME,JSON.stringify(firstObject));        
+    console.log(`${FILENAME} created.`);    
 }
 
 async function CompareFile(){
