@@ -7,11 +7,9 @@ const fsPromisses = require('fs/promises');
 const crypto = require('crypto');
 const { FILE } = require('dns');
 const TelegramBot = require('node-telegram-bot-api');
-const bot = new TelegramBot('8191935582:AAGRVFfcJzXN0kt4FdjmiiCyt31BOvY5P9o');
-(async () => {
-    await bot.setWebHook("https://noneastern-lillian-tranquilly.ngrok-free.dev/api/telegram/webhook");
-    console.log("Webhook defined");
-})
+const { time } = require('console');
+const bot = new TelegramBot('8191935582:AAGrgCY4-Qoxvy4rbNs_PRwm9EClf8dc8s8');
+
 const app = express();
 const fs = fsPromisses;
 const fsSync = fsNotPromises;
@@ -125,65 +123,265 @@ app.put("/tasks", async (req,res) => {
 
 //#region Telegram Endpoints
 
+var states = {};
+
 app.post("/api/telegram/webhook", async (req,res) => {
-    console.log(req.body.message.text);
-    if (req.body.message.text === '/tarefas') 
+    if(req.body.message)
     {
-        try {
+        // console.log("tem msg", req.body.message);
+        const chatId = req.body.message.chat.id;
+        
+        if(states[chatId]){
+
+            /*
+                phase : 'name',
+                id: taskFounded.TaskId,
+                form: {}
+             */
+            const actualState = states[chatId];
+
+
+            if(actualState.phase === 'name'){
+                actualState.form['name'] = req.body.message.text;
+                actualState.phase = 'desc';
+                await bot.sendMessage(chatId, 'Agora envie a nova descrição');
+                return res.sendStatus(200);
+            }
+
+            else if(actualState.phase === 'desc'){
+                actualState.phase = 'date';
+                actualState.form['desc'] = req.body.message.text;
+                await bot.sendMessage(chatId, 'Agora envie a nova data: \nOBS:Mantenha nesse formato: (DD/MM/YYYY)');
+                return res.sendStatus(200);
+
+            }
+            else if(actualState.phase === 'date'){
+                actualState.phase = 'hour';
+                actualState.form['date'] = req.body.message.text;
+                await bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
+                return res.sendStatus(200);
+            }
+                        
+            else if(actualState.phase === 'hour'){
+                actualState.phase = 'notify';
+                actualState.form['hour'] = req.body.message.text;
+                await bot.sendMessage(chatId, 'Deseja notificar a mensagem? Envie Sim/Não ou (S/N)'); // melhorar isso para evitar respostas indevidas fazer checkbox
+                // await bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
+                return res.sendStatus(200);
+            }
+            else if(actualState.phase === 'notify'){
+                actualState.phase = 'done';
+                actualState.form['notify'] = req.body.message.text;
+                await bot.sendMessage(chatId, 'Deseja salvar as alterações?'); // melhorar isso para evitar respostas indevidas fazer checkbox
+                return res.sendStatus(200);
+            }
+
+
+            else if (actualState.phase === 'done' || req.body.message.text == ('SIM' || 'sim' || 's' || 'S')){
+                // actualState.form['notify'] = req.body.message.text;
+                await bot.sendMessage(chatId,'Atualizando tarefa...')            
+                states = {};
+                try {                    
+                    await fetch(`http://localhost:${PORT}/edittelegram`,{
+                        method: 'PUT',
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(actualState.form)
+                    });
+                }
+                 catch (error) {
+                    return res.sendStatus(500);
+                }
+                    return res.sendStatus(200);
+            }
+
+            
+            /*if(actualState.phase === 'notify'){
+                console.log('fazer')
+            }
+            */
+        }
+
+
+        console.log(req.body.message.text);
+        if (req.body.message.text === '/tarefas') 
+        {
+            try {
+                const read = await fetch(`http://localhost:${PORT}/tasks`);
+                const tasks = await read.json();                
+                let message = "🗒️ *Suas tarefas:*\n\n";
+                tasks.forEach(task => {
+                    message += `📋 *Tarefa:* ${task.TaskName}\n`;
+                    message += `📅 *Data:* ${new Date(task.HourTask).toLocaleDateString('pt-BR')}\n`;
+                    message +=  task.TaskDone ? `✅ *Concluída:* Sim\n\n`  : `❌ *Concluída:* Não\n\n`; 
+                });
+
+                await bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" });
+
+                res.sendStatus(200);
+            } 
+            catch (error) {
+                console.error("Erro ao buscar tarefas:", error);
+                await bot.sendMessage(chatId ,"❌ Erro ao carregar as tarefas.");
+                res.sendStatus(500);
+            }
+        }
+
+        else if (req.body.message.text === '/editar')
+        {
             const read = await fetch(`http://localhost:${PORT}/tasks`);
-            console.log("here");
-            const tasks = await read.json();                
-            console.log("here 2");
+            const tasks = await read.json();  
+            // bot.onText(/\/editar/, (msg) => {
+            // })
 
-            let message = "🗒️ *Suas tarefas:*\n\n";
-            console.log("here 3");
+            const buttons = tasks.map(t => ([{
+                text: t.TaskName,
+                callback_data: `editar:${t.TaskId}`
+            }]));
 
-            tasks.forEach(task => {
-                message += `📋 *Tarefa:* ${task.TaskName}\n`;
-                // message += `📅 *Data:* ${new Date(task.HourTask).toLocaleDateString('pt-BR')}\n`;
-                message += `📅 *Data:* ${task.HourTask}\n`;
-                if(task.TaskDone)
-                    message += `✅ *Concluída:* Sim\n\n`;
-                else
-                    message += `❌ *Concluída:* Não\n\n`
+            bot.sendMessage(chatId, "Escolha qual tarefa deseja editar:", {
+                reply_markup: {
+                    inline_keyboard: buttons
+                }
             });
 
-            await bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" });
-
-            res.sendStatus(200);
-        } 
-        catch (error) {
-            console.error("Erro ao buscar tarefas:", error);
-            await bot.sendMessage(req.body.message.chat.id, "❌ Erro ao carregar as tarefas.");
-            res.sendStatus(500);
+            res.sendStatus(200);               
+            // var message = 'Em desenvolvimento...';
+            // await bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" }); 
         }
+
+        else if(req.body.message.text === '/deletar')
+        {
+            var message = 'Em desenvolvimento...';
+            await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+            res.sendStatus(200);
+        }
+        else{
+            await bot.sendMessage(chatId, 'Comando não identificado.', { parse_mode: "Markdown" });                
+            res.sendStatus(200);
+        }
+    }
+
+    if (req.body.callback_query)
+    {
+        const query = req.body.callback_query;
+        const messageId = query.message.message_id;
+        const [action, taskId] = query.data.split(':');
+        if (action === 'editar'){
+            await bot.deleteMessage(query.message.chat.id,messageId);
+            const read = await fetch(`http://localhost:${PORT}/tasks`);
+            const tasks = await read.json();  
+            const taskFounded = tasks.find(t => t.TaskId === Number(taskId));
+            await bot.sendMessage(query.message.chat.id, `📝 Editando tarefa: ${taskFounded.TaskName}\nEnvie o novo nome da tarefa:`);
+
+            states[query.message.chat.id] = {
+                phase : 'name',
+                id: taskFounded.TaskId,
+                form: {
+                    "id":taskFounded.TaskId ,"name" : "", "desc" : "", "hour" : "","notify" : "", "date": ""
+                }
+            };
+        }
+
+        res.sendStatus(200);
     }
      
 });
+
+app.put("/edittelegram", async (req,res) => {
+    tasks = await ReadAndReturnJson() || tasks;
+    if (tasks != undefined)
+    {
+        var toUpdate = tasks.filter(x => x.TaskId == Number(req.body.id));
+        if (toUpdate.length >= 1){
+            console.log(`enviado pelo telegram`,req.body);
+            // var flag = req.body.notify == ('Sim' || "S" || "s") ? true : false;
+            var flag = ["sim", "s"].includes(req.body.notify?.toLowerCase()); 
+            console.log(`notificar tarefa:`,flag);
+            toUpdate.TaskName = req.body.name;
+            toUpdate.TaskDesc = req.body.desc;
+            toUpdate.HourTask = parseBrazilianDate(`${req.body.date} - ${req.body.hour}`);
+            toUpdate.NotifyTask = flag;
+            console.log(toUpdate);
+            tasks.forEach(async el => {
+                if(el.TaskId == Number(req.body.id)){
+                    el.TaskName = toUpdate.TaskName;
+                    el.TaskDesc = toUpdate.TaskDesc;
+                    el.HourTask = toUpdate.HourTask;
+                    el.NotifyTask = toUpdate.NotifyTask;
+                    await fs.writeFile(FILENAME,JSON.stringify(tasks));
+                    return res.status(200).send("OK");
+                }
+            })
+            return res.status(500);
+        }
+        else
+            return res.status(500);
+    }     
+    }
+);
+
+function parseBrazilianDate(str) {
+  const [datePart, timePart] = str.split(" - ");
+  if (!datePart || !timePart) return null;
+
+  const [day, month, year] = datePart.split("/").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+
+  if (
+    !day || !month || !year ||
+    hours === undefined || minutes === undefined
+  ) return null;
+
+  const date = new Date(year, month - 1, day, hours, minutes);
+
+  // Retorna formato ISO com o timezone local (ex: -03:00)
+  const iso = date.toISOString(); // dá UTC (ex: 2025-11-23T11:00:00.000Z)
+  
+  // Ajuste pro timezone local (convertendo manualmente)
+  const offsetMin = date.getTimezoneOffset(); // em minutos
+  const offsetHr = Math.floor(Math.abs(offsetMin) / 60)
+    .toString()
+    .padStart(2, "0");
+  const offsetMn = (Math.abs(offsetMin) % 60)
+    .toString()
+    .padStart(2, "0");
+  const sign = offsetMin > 0 ? "-" : "+";
+
+  // Monta a string final
+  const localISO = iso.slice(0, 19) + `${sign}${offsetHr}:${offsetMn}`;
+  return localISO;
+}
+/*
+    FAZER:
+        1 - Resolver parse de datetime
+        2 - Clean code pelo amor de Deus
+        3 - Entender lógica para fazer o delete.
+ */
+
 
 //#endregion
 
 //#region Functions
 
-async function CreateTelegramData(telData){
-    if(telData != undefined){
-        const dataToWrite = [{"Id": telData.id, "Name" : `${telData.first_name} ${telData.last_name}`}]
-        if(fsSync.existsSync("TelegramData.json"))
-        {
-            const data = await fs.readFile("TelegramData.json",'utf8');
-            var dataa = await JSON.parse(data); 
-            // fazer verificação caso usuário já exista.
-            if(dataa != undefined){
-                dataa.push(...dataToWrite);
-                console.log("aqui");
-                fs.writeFile("TelegramData.json",JSON.stringify(dataa));
-            }
-        }
-        else{
-            fs.writeFile("TelegramData.json",JSON.stringify(dataToWrite));
-        }
-    }
-}
+// async function CreateTelegramData(telData){
+//     if(telData != undefined){
+//         const dataToWrite = [{"Id": telData.id, "Name" : `${telData.first_name} ${telData.last_name}`}]
+//         if(fsSync.existsSync("TelegramData.json"))
+//         {
+//             const data = await fs.readFile("TelegramData.json",'utf8');
+//             var dataa = await JSON.parse(data); 
+//             // fazer verificação caso usuário já exista.
+//             if(dataa != undefined){
+//                 dataa.push(...dataToWrite);
+//                 console.log("aqui");
+//                 fs.writeFile("TelegramData.json",JSON.stringify(dataa));
+//             }
+//         }
+//         else{
+//             fs.writeFile("TelegramData.json",JSON.stringify(dataToWrite));
+//         }
+//     }
+// }
 
 
 async function startApi(){
