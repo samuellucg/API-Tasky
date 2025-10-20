@@ -1,20 +1,20 @@
 //#region Imports / Variables / Constants
 // don't change nothing here
+require('dotenv').config();
 
 const express = require('express');
 const fsNotPromises = require('fs'); 
 const fsPromisses = require('fs/promises');
 const crypto = require('crypto');
-const { FILE } = require('dns');
 const TelegramBot = require('node-telegram-bot-api');
-const { time } = require('console');
-const bot = new TelegramBot('8191935582:AAGrgCY4-Qoxvy4rbNs_PRwm9EClf8dc8s8');
+const token = process.env.TELEGRAM_BOT_TOKEN;
+const bot = new TelegramBot(token);
 
 const app = express();
 const fs = fsPromisses;
 const fsSync = fsNotPromises;
 
-const PORT = 3000;
+const PORT = process.env.PORT;
 const FILENAME = 'Database.json' 
 
 const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
@@ -128,18 +128,10 @@ var states = {};
 app.post("/api/telegram/webhook", async (req,res) => {
     if(req.body.message)
     {
-        // console.log("tem msg", req.body.message);
         const chatId = req.body.message.chat.id;
         
         if(states[chatId]){
-
-            /*
-                phase : 'name',
-                id: taskFounded.TaskId,
-                form: {}
-             */
             const actualState = states[chatId];
-
 
             if(actualState.phase === 'name'){
                 actualState.form['name'] = req.body.message.text;
@@ -155,6 +147,7 @@ app.post("/api/telegram/webhook", async (req,res) => {
                 return res.sendStatus(200);
 
             }
+
             else if(actualState.phase === 'date'){
                 actualState.phase = 'hour';
                 actualState.form['date'] = req.body.message.text;
@@ -166,9 +159,9 @@ app.post("/api/telegram/webhook", async (req,res) => {
                 actualState.phase = 'notify';
                 actualState.form['hour'] = req.body.message.text;
                 await bot.sendMessage(chatId, 'Deseja notificar a mensagem? Envie Sim/Não ou (S/N)'); // melhorar isso para evitar respostas indevidas fazer checkbox
-                // await bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
                 return res.sendStatus(200);
             }
+
             else if(actualState.phase === 'notify'){
                 actualState.phase = 'done';
                 actualState.form['notify'] = req.body.message.text;
@@ -176,9 +169,7 @@ app.post("/api/telegram/webhook", async (req,res) => {
                 return res.sendStatus(200);
             }
 
-
             else if (actualState.phase === 'done' || req.body.message.text == ('SIM' || 'sim' || 's' || 'S')){
-                // actualState.form['notify'] = req.body.message.text;
                 await bot.sendMessage(chatId,'Atualizando tarefa...')            
                 states = {};
                 try {                    
@@ -193,16 +184,8 @@ app.post("/api/telegram/webhook", async (req,res) => {
                 }
                     return res.sendStatus(200);
             }
-
-            
-            /*if(actualState.phase === 'notify'){
-                console.log('fazer')
-            }
-            */
         }
 
-
-        console.log(req.body.message.text);
         if (req.body.message.text === '/tarefas') 
         {
             try {
@@ -214,9 +197,7 @@ app.post("/api/telegram/webhook", async (req,res) => {
                     message += `📅 *Data:* ${new Date(task.HourTask).toLocaleDateString('pt-BR')}\n`;
                     message +=  task.TaskDone ? `✅ *Concluída:* Sim\n\n`  : `❌ *Concluída:* Não\n\n`; 
                 });
-
                 await bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" });
-
                 res.sendStatus(200);
             } 
             catch (error) {
@@ -230,9 +211,6 @@ app.post("/api/telegram/webhook", async (req,res) => {
         {
             const read = await fetch(`http://localhost:${PORT}/tasks`);
             const tasks = await read.json();  
-            // bot.onText(/\/editar/, (msg) => {
-            // })
-
             const buttons = tasks.map(t => ([{
                 text: t.TaskName,
                 callback_data: `editar:${t.TaskId}`
@@ -245,8 +223,6 @@ app.post("/api/telegram/webhook", async (req,res) => {
             });
 
             res.sendStatus(200);               
-            // var message = 'Em desenvolvimento...';
-            // await bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" }); 
         }
 
         else if(req.body.message.text === '/deletar')
@@ -281,7 +257,6 @@ app.post("/api/telegram/webhook", async (req,res) => {
                 }
             };
         }
-
         res.sendStatus(200);
     }
      
@@ -293,15 +268,11 @@ app.put("/edittelegram", async (req,res) => {
     {
         var toUpdate = tasks.filter(x => x.TaskId == Number(req.body.id));
         if (toUpdate.length >= 1){
-            console.log(`enviado pelo telegram`,req.body);
-            // var flag = req.body.notify == ('Sim' || "S" || "s") ? true : false;
             var flag = ["sim", "s"].includes(req.body.notify?.toLowerCase()); 
-            console.log(`notificar tarefa:`,flag);
             toUpdate.TaskName = req.body.name;
             toUpdate.TaskDesc = req.body.desc;
             toUpdate.HourTask = parseBrazilianDate(`${req.body.date} - ${req.body.hour}`);
             toUpdate.NotifyTask = flag;
-            console.log(toUpdate);
             tasks.forEach(async el => {
                 if(el.TaskId == Number(req.body.id)){
                     el.TaskName = toUpdate.TaskName;
@@ -320,69 +291,20 @@ app.put("/edittelegram", async (req,res) => {
     }
 );
 
-function parseBrazilianDate(str) {
-  const [datePart, timePart] = str.split(" - ");
-  if (!datePart || !timePart) return null;
 
-  const [day, month, year] = datePart.split("/").map(Number);
-  const [hours, minutes] = timePart.split(":").map(Number);
-
-  if (
-    !day || !month || !year ||
-    hours === undefined || minutes === undefined
-  ) return null;
-
-  const date = new Date(year, month - 1, day, hours, minutes);
-
-  // Retorna formato ISO com o timezone local (ex: -03:00)
-  const iso = date.toISOString(); // dá UTC (ex: 2025-11-23T11:00:00.000Z)
-  
-  // Ajuste pro timezone local (convertendo manualmente)
-  const offsetMin = date.getTimezoneOffset(); // em minutos
-  const offsetHr = Math.floor(Math.abs(offsetMin) / 60)
-    .toString()
-    .padStart(2, "0");
-  const offsetMn = (Math.abs(offsetMin) % 60)
-    .toString()
-    .padStart(2, "0");
-  const sign = offsetMin > 0 ? "-" : "+";
-
-  // Monta a string final
-  const localISO = iso.slice(0, 19) + `${sign}${offsetHr}:${offsetMn}`;
-  return localISO;
-}
 /*
     FAZER:
         1 - Resolver parse de datetime
         2 - Clean code pelo amor de Deus
-        3 - Entender lógica para fazer o delete.
+        3 - Adicionar .env / separar api.js para api-telegram / api.js (rota para webhook chamar arquivo api-telegram(criar)) .
+        4 - Entender lógica para fazer o delete.
+
  */
 
 
 //#endregion
 
 //#region Functions
-
-// async function CreateTelegramData(telData){
-//     if(telData != undefined){
-//         const dataToWrite = [{"Id": telData.id, "Name" : `${telData.first_name} ${telData.last_name}`}]
-//         if(fsSync.existsSync("TelegramData.json"))
-//         {
-//             const data = await fs.readFile("TelegramData.json",'utf8');
-//             var dataa = await JSON.parse(data); 
-//             // fazer verificação caso usuário já exista.
-//             if(dataa != undefined){
-//                 dataa.push(...dataToWrite);
-//                 console.log("aqui");
-//                 fs.writeFile("TelegramData.json",JSON.stringify(dataa));
-//             }
-//         }
-//         else{
-//             fs.writeFile("TelegramData.json",JSON.stringify(dataToWrite));
-//         }
-//     }
-// }
-
 
 async function startApi(){
     tasks = await ReadAndReturnJson();
@@ -461,6 +383,35 @@ async function HashLog(){
     const logInfo = `${dateToLog.toLocaleDateString("pt-br")} at ${dateToLog.toLocaleTimeString("pt-br")}`;
     const logToWrite = `Hash created: ${hashToSave} in ${logInfo}\n`;
     await fs.appendFile('HashLog.txt', logToWrite);
+}
+
+function parseBrazilianDate(str) {
+  const [datePart, timePart] = str.split(" - ");
+  if (!datePart || !timePart) return null;
+
+  const [day, month, year] = datePart.split("/").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+
+  if (
+    !day || !month || !year ||
+    hours === undefined || minutes === undefined
+  ) return null;
+
+  const date = new Date(year, month - 1, day, hours, minutes);
+
+  const iso = date.toISOString();
+
+  const offsetMin = date.getTimezoneOffset();
+  const offsetHr = Math.floor(Math.abs(offsetMin) / 60)
+    .toString()
+    .padStart(2, "0");
+  const offsetMn = (Math.abs(offsetMin) % 60)
+    .toString()
+    .padStart(2, "0");
+  const sign = offsetMin > 0 ? "-" : "+";
+
+  const localISO = iso.slice(0, 19) + `${sign}${offsetHr}:${offsetMn}`;
+  return localISO;
 }
 
 //#endregion
