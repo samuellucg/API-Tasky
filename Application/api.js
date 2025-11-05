@@ -14,8 +14,11 @@ const app = express();
 const fs = fsPromisses;
 const fsSync = fsNotPromises;
 
+const taskRoutes = require('../routes/tasks.js');
+
 const PORT = process.env.PORT;
 const FILENAME = 'Database.json' 
+const taskService = require('../services/taskService.js');
 
 const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
     And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
@@ -29,8 +32,14 @@ app.use(express.json());
 
 //#endregion
 
-//#region Endpoints
+//#region  New Version
 
+app.use('/tasks',taskRoutes);
+
+//#endregion
+
+//#region Endpoints
+/*
 app.get("/", (req,res) => {
     res.json(resJson);
 });
@@ -118,7 +127,7 @@ app.put("/tasks", async (req,res) => {
         
     }
 })
-
+*/
 //#endregion
 
 //#region Telegram Endpoints
@@ -307,7 +316,7 @@ app.put("/edittelegram", async (req,res) => {
 //#region Functions
 
 async function startApi(){
-    tasks = await ReadAndReturnJson();
+    var tasks = await ReadAndReturnJson();
 }
 
 async function ReadAndReturnJson(){
@@ -417,6 +426,6 @@ function parseBrazilianDate(str) {
 //#endregion
 
 app.listen(PORT, () => {
-    startApi();
+    taskService.startApi();
     console.log(`Api running on port ${PORT}\n`);    
 });
