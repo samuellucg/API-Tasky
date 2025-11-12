@@ -15,26 +15,34 @@ const fs = fsPromisses;
 const fsSync = fsNotPromises;
 
 const taskRoutes = require('../routes/tasks.js');
+// const handleWebhook = require('../bot/telegramWebhook.js')
 
 const PORT = process.env.PORT;
 const FILENAME = 'Database.json' 
 const taskService = require('../services/taskService.js');
+const TelegramHandler = require('../bot/telegramWebhook.js');
 
-const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
-    And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
-        Im: "Creating tasky api, but we least got the app v1 created!"}]
+// const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
+//     And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
+//         Im: "Creating tasky api, but we least got the app v1 created!"}]
 
 
 var hasInitialized = false;
 var hashToSave;
-var tasks;
+
 app.use(express.json());
 
 //#endregion
 
 //#region  New Version
 
+
+const telHand = new TelegramHandler(app,bot,PORT)
+// handleWebhook.registerApp(app);
+
 app.use('/tasks',taskRoutes);
+
+app.post("/api/telegram/webhook", telHand.routesTelegram);
 
 //#endregion
 
@@ -131,7 +139,7 @@ app.put("/tasks", async (req,res) => {
 //#endregion
 
 //#region Telegram Endpoints
-
+/*
 var states = {};
 
 app.post("/api/telegram/webhook", async (req,res) => {
@@ -300,6 +308,7 @@ app.put("/edittelegram", async (req,res) => {
     }
 );
 
+*/
 
 /*
     FAZER:
@@ -313,7 +322,7 @@ app.put("/edittelegram", async (req,res) => {
 
 //#endregion
 
-//#region Functions
+//#region Functions QUANDO PUDER DELETAR TUDO
 
 async function startApi(){
     var tasks = await ReadAndReturnJson();

@@ -45,8 +45,8 @@ async function UpdateTask(req){
     {                
         var tasks = await ReadAndReturnJson() || tasksGlobal;      
         var toSave = tasks.filter(x => x.TaskId == Number(req.query.taskId))[0]; // trocar por find
-        console.log("to save val",toSave);
-        console.log("legn:",toSave.length);
+        // console.log("to save val",toSave);
+        // console.log("legn:",toSave.length);
         if(toSave)
         {
             toSave.TaskName = req.body.TaskName;
@@ -58,17 +58,17 @@ async function UpdateTask(req){
             for (const element of tasks) {
                 if(element.TaskId == Number(req.query.taskId))
                 {
-                    console.log("HEREEEE");
+                    // console.log("HEREEEE");
                     element.TaskName = toSave.TaskName;
-                    console.log("element:",element);
-                    console.log("new data:", toSave);
+                    // console.log("element:",element);
+                    // console.log("new data:", toSave);
                     element.TaskDesc = toSave.TaskDesc;
                     element.HourTask = toSave.HourTask;
                     element.NotifyTask = toSave.NotifyTask;
                     element.TaskDone = toSave.TaskDone;
-                    console.log('going to return');
+                    // console.log('going to return');
                     await fs.writeFile(FILENAME,JSON.stringify(tasks));
-                    console.log('returned');
+                    // console.log('returned');
                     return true;
                 }
             }
@@ -97,10 +97,10 @@ async function DeleteTask(req){
         var tasks = await ReadAndReturnJson() || tasksGlobal;
         
         if (tasks){
-            console.log('on if delete');
+            // console.log('on if delete');
             var newTasks = tasks.filter(x => x.TaskId != Number(req.query.taskId));
             tasksGlobal = newTasks; // atualiza cache global antes de ser feito o delete.
-            console.log('newTasks val:',newTasks);
+            // console.log('newTasks val:',newTasks);
             await fs.writeFile(FILENAME,JSON.stringify(newTasks));
             // await new Promise(res => setTimeout(res, 100));
             return true
@@ -119,9 +119,10 @@ async function DeleteTask(req){
 async function GetTasks(){
     try
     {
+        // console.log("aka");
         var tasks = await ReadAndReturnJson() || tasksGlobal;    
         if (tasks){        
-            console.log('tasks to return get req:',tasks);
+            // console.log('tasks to return get req:',tasks);
             return tasks;
         }
         else{
