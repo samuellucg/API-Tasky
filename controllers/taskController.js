@@ -77,5 +77,9 @@ module.exports = {
     },
     healthcheck: async (req,res) =>{
         return res.status(200).send("OK");
+    },
+    test: async(req,res) => {
+        await taskService.getTaskId();
+        return res.status(200).send("OK");
     }
 };

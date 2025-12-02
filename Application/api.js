@@ -8,7 +8,6 @@ const fsPromisses = require('fs/promises');
 const crypto = require('crypto');
 const TelegramBot = require('node-telegram-bot-api');
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const bot = new TelegramBot(token);
 
 const app = express();
 const fs = fsPromisses;
@@ -37,7 +36,7 @@ app.use(express.json());
 //#region  New Version
 
 
-const telHand = new TelegramHandler(app,bot,PORT)
+const telHand = new TelegramHandler(app,token,PORT)
 // handleWebhook.registerApp(app);
 
 app.use('/tasks',taskRoutes);
@@ -437,4 +436,5 @@ function parseBrazilianDate(str) {
 app.listen(PORT, () => {
     taskService.startApi();
     console.log(`Api running on port ${PORT}\n`);    
+    console.log(token);
 });

@@ -8,4 +8,8 @@ router.put('/',taskController.update); // verificar
 router.delete('/',taskController.delete); // verificar
 router.get('/healthcheck',taskController.healthcheck);
 
+// router below to test
+
+router.get('/test',taskController.test)
+
 module.exports = router;

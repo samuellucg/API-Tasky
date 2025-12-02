@@ -2,3 +2,7 @@ Database.json
 HashLog.txt
 TelegramData.json
 .env
+to-do.txt
+node_modules\
+node_modules
+node_modules\.bin

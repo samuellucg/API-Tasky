@@ -20,21 +20,24 @@ const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FC
 async function CreateNewTask(req){
     try 
     {    
-        console.log("on create in service");
         var tasks = await ReadAndReturnJson() || tasksGlobal;
-        console.log("after tasks");
-        console.log("tasks val:",tasks);
+        // console.log("after tasks");
+        // console.log("AFTER REQ TO CREATE:",tasks);
         if (tasks){
-            console.log("on tasks if in services");            
+            console.log("Tasks antes do push:", JSON.stringify(tasks, null, 2));
+        
             tasks.push(req.body);
+            console.log("AFTER PUSH TO CREATE:",tasks);
             await fs.writeFile(FILENAME,JSON.stringify(tasks));   
             return tasks;
         }
 
+        console.log("aquiiui")
         return null;
     } 
     
     catch (error) {
+        console.log('deu ruim irmao')
         return undefined;        
     }
 
@@ -43,7 +46,8 @@ async function CreateNewTask(req){
 async function UpdateTask(req){
     try 
     {                
-        var tasks = await ReadAndReturnJson() || tasksGlobal;      
+        var tasks = await ReadAndReturnJson() || tasksGlobal;
+        tasks.filter(x => x!== null && x !== undefined);  
         var toSave = tasks.filter(x => x.TaskId == Number(req.query.taskId))[0]; // trocar por find
         // console.log("to save val",toSave);
         // console.log("legn:",toSave.length);
@@ -119,10 +123,9 @@ async function DeleteTask(req){
 async function GetTasks(){
     try
     {
-        // console.log("aka");
         var tasks = await ReadAndReturnJson() || tasksGlobal;    
         if (tasks){        
-            // console.log('tasks to return get req:',tasks);
+            console.log('Get Tasks Result:',tasks);
             return tasks;
         }
         else{
@@ -132,6 +135,23 @@ async function GetTasks(){
     catch (error)
     {
         return undefined;
+    }
+}
+
+async function getTaskId() {
+    try 
+    {
+        let tasks = await ReadAndReturnJson() || tasksGlobal;
+
+        if(!tasks.length) return 1;
+
+        const maxId = Math.max(...tasks.map(t => t.taskId));
+        // let id = tasks.length += 1;
+        return maxId +=1;
+    } 
+    catch (error)
+    {
+        console.error("error",error);
     }
 }
 
@@ -234,5 +254,6 @@ module.exports =
     CreateNewTask,
     UpdateTask,
     DeleteTask,
-    startApi
+    startApi,
+    getTaskId
 };
