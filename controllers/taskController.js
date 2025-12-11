@@ -79,7 +79,7 @@ module.exports = {
         return res.status(200).send("OK");
     },
     test: async(req,res) => {
-        await taskService.getTaskId();
+        await taskService.checkDateAndHour('hour',':260sgsgs0');
         return res.status(200).send("OK");
     }
 };

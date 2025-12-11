@@ -5,6 +5,7 @@ const TelegramBot = require('node-telegram-bot-api');
 
 const fs = fsPromisses;
 let states = {};
+let errorCounter = 0;
 let app;
 let bot;
 let port;
@@ -23,13 +24,11 @@ class TelegramHandler {
   }
 
 async routesTelegram(req,res){
-    console.log("we are here");
-    console.log(req.body);
+    // console.log(req.body);
     if(req.body.message)
     {
         const chatId = req.body.message.chat.id;
         
-        // mudar isso, talvez desacoplar
         if(states[chatId]){
             const actualState = states[chatId];
 
@@ -47,43 +46,72 @@ async routesTelegram(req,res){
                     return res.sendStatus(200);
 
                 case 'date':
-                    actualState.phase = 'hour';
-                    actualState.form['date'] = req.body.message.text;
-                    await this.bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
+                    if (errorCounter === 5){
+                        delete states[chatId];
+                        await this.bot.sendMessage(chatId, 'Como não está sendo possível criar sua tarefa, tente novamente mais tarde');
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+
+                    var check = services.checkDateAndHour('date',req.body.message.text);
+                    if (check){
+                        actualState.phase = 'hour';
+                        actualState.form['date'] = req.body.message.text;
+                        await this.bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }                    
+                    await this.bot.sendMessage(chatId, 'Houve um erro ao definir sua data, por favor envie novamente nesse formato\n(DD/MM/YYYY)');
+                    errorCounter+=1;
                     return res.sendStatus(200);
-                
+
                 case 'hour':
-                    actualState.phase = 'notify';
-                    actualState.form['hour'] = req.body.message.text;
-                    await this.bot.sendMessage(chatId, 'Deseja notificar a mensagem? Envie Sim/Não ou (S/N)'); // melhorar isso para evitar respostas indevidas fazer checkbox
+                    if(errorCounter == 5){
+                        delete states[chatId];
+                        await this.bot.sendMessage(chatId, 'Como não está sendo possível criar sua tarefa, tente novamente mais tarde');
+                        return res.sendStatus(200);
+                    }
+
+                    var check = await services.checkDateAndHour('hour',req.body.message.text);
+                    
+                    if(check){
+                        actualState.phase = 'notify';
+                        actualState.form['hour'] = req.body.message.text;
+                        await this.bot.sendMessage(chatId, 'Deseja notificar a tarefa? Envie Sim/Não ou (S/N) \n\nOBS: Qualquer mensagem diferente disso não irá notificar a mensagem')
+                        return res.sendStatus(200);
+                    }
+
+                    await this.bot.sendMessage(chatId, 'Houve um erro ao definir seu horário, por favor envie novamente nesse formato: 00:00)');
+                    errorCounter+=1;
+                    console.log('errorCounter:',errorCounter);
                     return res.sendStatus(200);
                     
                 case 'notify':
+                    var text = req.body.message.text.toUpperCase()
+                    var result = (text === 'S' || text === 'SIM');
+                    actualState.form['notify'] = result;
                     actualState.phase = 'done';
-                    actualState.form['notify'] = req.body.message.text;
-                    await this.bot.sendMessage(chatId, 'Deseja salvar as alterações?'); // melhorar isso para evitar respostas indevidas fazer checkbox
-                    return res.sendStatus(200);
 
-                case ('done' || req.body.message.text == ('SIM' || 'sim' || 's' || 'S')):
-                    await this.bot.sendMessage(chatId,'Atualizando tarefa...')            
-                    states = {};
+                case 'done':
+                    await this.bot.sendMessage(chatId,'Atualizando tarefa...');
+
                     var returnStatus = await this.editTelegram(actualState.form);
-                    console.log("RETURN DONE VALUE\N\N\N\N\N\N:",returnStatus);
-                    return returnStatus == true ? res.sendStatus(200) : res.sendStatus(500);      
-                    
+                    if (returnStatus != undefined && returnStatus != false){
+                        var message = "🗒️ *Sua tarefa:*\n\n";
+                        message += `📋 *Tarefa:* ${returnStatus.TaskName}\n`;
+                        message += `📝 *Descrição:* ${returnStatus.TaskDesc}\n`;
+                        message += `📅 *Data:* ${new Date(returnStatus.HourTask).toLocaleDateString('pt-BR')}\n`;
+                        await this.bot.sendMessage(chatId, message, {parse_mode: 'Markdown'});
+                        delete states[chatId];
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+                    delete states[chatId];
+                    errorCounter = 0;
+                    return res.sendStatus(200);  
+
                 // A partir daqui será cases para criação
 
-
-                /*
-                                       states[query.message.chat.id] = {
-                       phase : 'nameCreate',
-                       form : {
-                           'TaskName' : '', 'NotifyTask' : '', 'TaskDesc' : '', 'HourTask' : '', 
-                           'IsEditingTask' : false, 'CanChange' : true, 'TaskId' : 10 ,'TaskDone' : false
-                       }
-            }
-                */
-                
                 case 'nameCreate':
                     actualState.phase = 'descCreate';
                     actualState.form['TaskName'] = req.body.message.text;
@@ -97,129 +125,101 @@ async routesTelegram(req,res){
                     return res.sendStatus(200); 
 
                 case 'hourCreate':
-                    actualState.phase = 'dateCreate';
-                    actualState.form['hour'] = req.body.message.text;
-                    await this.bot.sendMessage(chatId, 'Envie a data: \nOBS:Mantenha nesse formato: (DD/MM/YYYY)')
-                    return res.sendStatus(200);               
+                    if(errorCounter == 5){
+                        delete states[chatId];
+                        await this.bot.sendMessage(chatId, 'Como não está sendo possível criar sua tarefa, tente novamente mais tarde');
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+
+                    var check = await services.checkDateAndHour('hour',req.body.message.text);
+
+                    if(check){                                                
+                        actualState.phase = 'dateCreate';
+                        actualState.form['hour'] = req.body.message.text;
+                        await this.bot.sendMessage(chatId, 'Envie a data: \nOBS:Mantenha nesse formato: (DD/MM/YYYY)')
+                        errorCounter = 0;
+                        return res.sendStatus(200);               
+                    }
+
+                    await this.bot.sendMessage(chatId, 'Houve um erro ao definir seu horário, por favor envie novamente nesse formato: 00:00)');
+                    errorCounter+=1;
+                    console.log('errorCounter:',errorCounter);
+                    return res.sendStatus(200);
 
                 case 'dateCreate':
-                    actualState.phase = 'notifyCreate';
-                    actualState.form['date'] = req.body.message.text;
-                    actualState.form['HourTask'] = this.parseBrazilianDate(`${actualState.form['date']} - ${actualState.form['hour']}`)
-                    await this.bot.sendMessage(chatId, 'Deseja notificar a tarefa? Envie Sim/Não ou (S/N)')
+                    if (errorCounter === 5){
+                        delete states[chatId];
+                        await this.bot.sendMessage(chatId, 'Como não está sendo possível criar sua tarefa, tente novamente mais tarde');
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+                    var check = await services.checkDateAndHour('date',req.body.message.text);
+
+                    if(check){
+                        actualState.phase = 'notifyCreate';
+                        actualState.form['date'] = req.body.message.text;
+                        actualState.form['HourTask'] = this.parseBrazilianDate(`${actualState.form['date']} - ${actualState.form['hour']}`)
+                        await this.bot.sendMessage(chatId, 'Deseja notificar a tarefa? Envie Sim/Não ou (S/N) \n\nOBS: Qualquer mensagem diferente disso não irá notificar a mensagem')
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+
+                    await this.bot.sendMessage(chatId, 'Houve um erro ao definir sua data, por favor envie novamente nesse formato \n(DD/MM/YYYY)');
+                    errorCounter+=1;
+                    console.log('errorCounter:',errorCounter);
                     return res.sendStatus(200);
 
                 case 'notifyCreate':
-                    actualState.phase = 'doneCreate';
-                    let text = req.body.message.text.toUpperCase()
-                    let result = (text === 'S' || text === 'SIM');
+                    var text = req.body.message.text.toUpperCase()
+                    var result = (text === 'S' || text === 'SIM');
                     actualState.form['NotifyTask'] = result;
-                    // parseBrazilianDate(`${req.body.date} - ${req.body.hour}`);
-                    // await this.bot.sendMessage(chatId, 'Deseja notificar a tarefa? Envie Sim/Não ou (S/N)')
-                    // return res.sendStatus(200);
+                    actualState.phase = 'doneCreate';
 
                 case 'doneCreate':
-                    // console.log('\n\n\nTAREFA PARA SER CRIADA', actualState.form);
                     const responseObject = {
                         'body' : actualState.form
                     }
-                    // console.log('responseObj:', responseObject);
-                    await services.CreateNewTask(responseObject);
-                    await this.bot.sendMessage(chatId,'tarefa criada');
+                    var result = await services.CreateNewTask(responseObject);
+
+                    if(result != undefined && result != null){
+                        var message = "🗒️ *Sua tarefa:*\n\n";
+                        message += `📋 *Tarefa:* ${actualState.form.TaskName}\n`;
+                        message += `📝 *Descrição:* ${actualState.form.TaskDesc}\n`;
+                        message += `📅 *Data:* ${new Date(actualState.form.HourTask).toLocaleDateString('pt-BR')}\n`;               
+                        await this.bot.sendMessage(chatId,'Tarefa criada com sucesso!');
+                        await this.bot.sendMessage(chatId,message, {parse_mode : "Markdown"});
+                        delete states[chatId];
+                        errorCounter = 0;
+                        return res.sendStatus(200);
+                    }
+
+                    await this.bot.sendMessage(chatId,'Houve um problema ao criar sua tarefa, tente novamente.');
                     delete states[chatId];
-                    // states = {}
+                    errorCounter = 0;
                     return res.sendStatus(200);
 
                 default:
                     break;
             }
 
-            //#region  OLD CODE HERE!
-            /*
-            if(actualState.phase === 'name'){
-                actualState.form['name'] = req.body.message.text;
-                actualState.phase = 'desc';
-                await bot.sendMessage(chatId, 'Agora envie a nova descrição');
-                return res.sendStatus(200);
-            }
-
-            else if(actualState.phase === 'desc'){
-                actualState.phase = 'date';
-                actualState.form['desc'] = req.body.message.text;
-                await bot.sendMessage(chatId, 'Agora envie a nova data: \nOBS:Mantenha nesse formato: (DD/MM/YYYY)');
-                return res.sendStatus(200);
-
-            }
-
-            else if(actualState.phase === 'date'){
-                actualState.phase = 'hour';
-                actualState.form['date'] = req.body.message.text;
-                await bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
-                return res.sendStatus(200);
-            }
-                        
-            else if(actualState.phase === 'hour'){
-                actualState.phase = 'notify';
-                actualState.form['hour'] = req.body.message.text;
-                await bot.sendMessage(chatId, 'Deseja notificar a mensagem? Envie Sim/Não ou (S/N)'); // melhorar isso para evitar respostas indevidas fazer checkbox
-                return res.sendStatus(200);
-            }
-
-            else if(actualState.phase === 'notify'){
-                actualState.phase = 'done';
-
-                actualState.form['notify'] = req.body.message.text;
-                await bot.sendMessage(chatId, 'Deseja salvar as alterações?'); // melhorar isso para evitar respostas indevidas fazer checkbox
-                return res.sendStatus(200);
-            }
-
-            else if (actualState.phase === 'done' || req.body.message.text == ('SIM' || 'sim' || 's' || 'S')){
-                await bot.sendMessage(chatId,'Atualizando tarefa...')            
-                states = {};
-                return await editTelegram(JSON.stringify(actualState.form)); 
-                try {                    
-                    await fetch(`http://localhost:${port}/edittelegram`,{
-                        method: 'PUT',
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify(actualState.form)
-                    });
-                }
-                 catch (error) {
-                    return res.sendStatus(500);
-                }
-                    return res.sendStatus(200);
-            }
-            */
-            //#endregion
         }
 
-
-
-        // if (req.body.message.text === '/start'){            
-        //     console.log("/start");
-        //     await this.bot.sendMessage(req.body.message.chat.id, 'Bot configurado', { parse_mode: "Markdown" });
-        //     return res.sendStatus(200);
-        // }
-
-        if (req.body.message.text === '/tarefas') // listo
+        if (req.body.message.text === '/tarefas')
         {
             try {
-                // console.log('on tarefas');
                 const read = await services.GetTasks();
                 if(read != false && read != undefined)
                 {
-                    // console.log('awui ',req.body.message.chat.id); // resolver o sendMessage
                     const tasks = read;        
                     let message = "🗒️ *Suas tarefas:*\n\n";
                     tasks.forEach(task => {
                         message += `📋 *Tarefa:* ${task.TaskName}\n`;
+                        message += `📝 *Descrição:* ${task.TaskDesc}\n`;
                         message += `📅 *Data:* ${new Date(task.HourTask).toLocaleDateString('pt-BR')}\n`;
                         message +=  task.TaskDone ? `✅ *Concluída:* Sim\n\n`  : `❌ *Concluída:* Não\n\n`; 
                     });
-                    // console.log(req.body);
-                    console.log("BODY RECEIVED:", JSON.stringify(req.body, null, 2));
-                    console.log("chatId enviado:", chatId);
-                    // this.bot.sendMessage(req.body.message.chat.id,"ola",{parse_mode : "Markdown"});
+                    // console.log("BODY RECEIVED:", JSON.stringify(req.body, null, 2));
                     await this.bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" });
                     return res.sendStatus(200);
                 }
@@ -239,15 +239,13 @@ async routesTelegram(req,res){
             try 
             {            
                 await this.bot.sendMessage(chatId, 'Envie o nome da nova tarefa:')
-                const idTask = await services.getTaskId();
-                console.log("ID TASK HERE:",idTask);
+                let idTask = await services.getTaskId();
                 states[chatId] = {
                     phase : 'nameCreate',
                     form : {
                         'TaskName' : '', 'NotifyTask' : '', 'TaskDesc' : '', 'HourTask' : '', 
                         'IsEditingTask' : false, 'CanChange' : true, 'TaskId' : idTask ,'TaskDone' : false, 'hour' : '', 'date' : ''
                     }
-                    // HourTask está sendo usado?
                 }
                 return res.sendStatus(200);
                 } 
@@ -258,7 +256,7 @@ async routesTelegram(req,res){
             }
         }
 
-        else if (req.body.message.text === '/editar') // listo
+        else if (req.body.message.text === '/editar')
         {
             try 
             {
@@ -323,9 +321,8 @@ async routesTelegram(req,res){
                 return res.sendStatus(500);                   
             }
         }
-        // seu próximo passo é desenvolver o criar tarefa e deletar. Depois melhorar realmente a lógica do telegram handler.
+
         else{
-             // TRATAR PARA ISSO RETORNAR APENAS QUANDO NECESSÁRIO
             await this.bot.sendMessage(chatId, 'Comando não identificado.', { parse_mode: "Markdown" });                
             return res.sendStatus(200);
         }
@@ -333,59 +330,51 @@ async routesTelegram(req,res){
 
     if (req.body.callback_query)
     {
-        const query = req.body.callback_query;
-        const messageId = query.message.message_id;
-        const [action, taskId] = query.data.split(':');
-        if (action === 'editar'){
-            await this.bot.deleteMessage(query.message.chat.id,messageId);
-            const tasks = await services.GetTasks();
-            // const read = await fetch(`http://localhost:${port}/tasks`);
-            // const tasks = await read.json();  
-            const taskFounded = tasks.find(t => t.TaskId === Number(taskId));
-            await this.bot.sendMessage(query.message.chat.id, `📝 Editando tarefa: ${taskFounded.TaskName}\nEnvie o novo nome da tarefa:`);
+        try{
+            const query = req.body.callback_query;
+            const messageId = query.message.message_id;
+            const [action, taskId] = query.data.split(':');
+            if (action === 'editar'){
+                await this.bot.deleteMessage(query.message.chat.id,messageId);
+                const tasks = await services.GetTasks(); 
+                const taskFounded = tasks.find(t => t.TaskId === Number(taskId));
+                await this.bot.sendMessage(query.message.chat.id, `📝 Editando tarefa: ${taskFounded.TaskName}\nEnvie o novo nome da tarefa:`);
 
-            states[query.message.chat.id] = {
-                phase : 'name',
-                id: taskFounded.TaskId,
-                form: {
-                    "id":taskFounded.TaskId ,"name" : "", "desc" : "", "hour" : "","notify" : "", "date": ""
-                }
-            };
-        }
-
-        if (action === 'delete'){
-            await this.bot.deleteMessage(query.message.chat.id,messageId);
-            let responseObject = {
-                'query' : {
-                    'taskId' : taskId
-                }
+                states[query.message.chat.id] = {
+                    phase : 'name',
+                    id: taskFounded.TaskId,
+                    form: {
+                        "id":taskFounded.TaskId ,"name" : "", "desc" : "", "hour" : "","notify" : "", "date": ""
+                    }
+                };
             }
 
-            let response = await services.DeleteTask(responseObject);
-            
-            if(response)
-                await this.bot.sendMessage(query.message.chat.id,'Tarefa deletada');
-            else
-                await this.bot.sendMessage(query.message.chat.id,'Erro ao deletar tarefa');
+            if (action === 'delete'){
+                await this.bot.deleteMessage(query.message.chat.id,messageId);
+                let responseObject = {
+                    'query' : {
+                        'taskId' : taskId
+                    }
+                }
 
-            return res.sendStatus(200)
+                let response = await services.DeleteTask(responseObject);
 
+                if(response)
+                    await this.bot.sendMessage(query.message.chat.id,'Tarefa deletada');
+                else
+                    await this.bot.sendMessage(query.message.chat.id,'Erro ao deletar tarefa');
+
+                return res.sendStatus(200)
+
+            }
+
+            return res.sendStatus(200);
+        }
+        catch(error){
+            await this.bot.sendMessage(query.message.chat.id, `📝 Erro desconhecido`);
+            return res.sendStatus(200);
         }
 
-        // if (action === 'create'){
-
-        //     await this.bot.sendMessage(query.message.chat.id, 'Envie o nome da nova tarefa:')
-
-        //     states[query.message.chat.id] = {
-        //         phase : 'nameCreate',
-        //         form : {
-        //             'TaskName' : '', 'NotifyTask' : '', 'TaskDesc' : '', 'HourTask' : '', 
-        //             'IsEditingTask' : false, 'CanChange' : true, 'TaskId' : '' ,'TaskDone' : false, 'hour' : '', 'date' : ''
-        //         }
-        //         // HourTask está sendo usado?
-        //     }
-        // }
-        return res.sendStatus(200);
     }
 
     return res.sendStatus(200);
@@ -395,35 +384,39 @@ async routesTelegram(req,res){
 
 
 async editTelegram(req) {
-    // console.log("on edit Function");
-    let tasks = await services.GetTasks();
-    if (tasks != undefined)
-    {
-        var toUpdate = await tasks.filter(x => x.TaskId == Number(req.id));
-        // console.log("toUpdate:", toUpdate);
-        if (toUpdate.length >= 1){
-            var flag = ["sim", "s"].includes(req.notify?.toLowerCase()); 
-            toUpdate.TaskName = req.name;
-            toUpdate.TaskDesc = req.desc;
-            toUpdate.HourTask = this.parseBrazilianDate(`${req.date} - ${req.hour}`);
-            toUpdate.NotifyTask = flag;
-            tasks.forEach(async el => {
-                if(el.TaskId == Number(req.id)){
-                    el.TaskName = toUpdate.TaskName;
-                    el.TaskDesc = toUpdate.TaskDesc;
-                    el.HourTask = toUpdate.HourTask;
-                    el.NotifyTask = toUpdate.NotifyTask;
-                    await fs.writeFile(FILENAME,JSON.stringify(tasks));
-                    return true;
+    try 
+    {        
+        let tasks = await services.GetTasks();
+        if (tasks != undefined)
+        {
+            var toUpdate = await tasks.filter(x => x.TaskId == Number(req.id));
+            if (toUpdate.length >= 1){     
+                toUpdate.TaskName = req.name;
+                toUpdate.TaskDesc = req.desc;
+                toUpdate.HourTask = this.parseBrazilianDate(`${req.date} - ${req.hour}`);
+                toUpdate.NotifyTask = req.notify;
+
+                for await (const tks of tasks) {        
+                    if(tks.TaskId == Number(req.id)){
+                        tks.TaskName = toUpdate.TaskName;
+                        tks.TaskDesc = toUpdate.TaskDesc;
+                        tks.HourTask = toUpdate.HourTask;
+                        tks.NotifyTask = toUpdate.NotifyTask;
+                        await fs.writeFile(FILENAME,JSON.stringify(tasks));             
+                        return toUpdate; 
+                    }                    
                 }
-            })
-            // console.log("vai retornar 500");
-            return false;
-        }
-        else
-            // console.log("vai retornar else");
-            return false;
-    }         
+                return false;
+            }
+            else
+                return false;
+        }         
+    } 
+    catch (error) 
+    {
+        console.log("Error on editTelegram function :",error);
+        return undefined;
+    }
 }
 
 parseBrazilianDate(str) {
@@ -458,37 +451,3 @@ parseBrazilianDate(str) {
 }
 
 module.exports = TelegramHandler;
-
-
-//#region OLD EDITTELEGRAM ENDPOINT
-/*
-app.put("/edittelegram", async (req,res) => {
-    tasks = await ReadAndReturnJson() || tasks;
-    if (tasks != undefined)
-    {
-        var toUpdate = tasks.filter(x => x.TaskId == Number(req.body.id));
-        if (toUpdate.length >= 1){
-            var flag = ["sim", "s"].includes(req.body.notify?.toLowerCase()); 
-            toUpdate.TaskName = req.body.name;
-            toUpdate.TaskDesc = req.body.desc;
-            toUpdate.HourTask = parseBrazilianDate(`${req.body.date} - ${req.body.hour}`);
-            toUpdate.NotifyTask = flag;
-            tasks.forEach(async el => {
-                if(el.TaskId == Number(req.body.id)){
-                    el.TaskName = toUpdate.TaskName;
-                    el.TaskDesc = toUpdate.TaskDesc;
-                    el.HourTask = toUpdate.HourTask;
-                    el.NotifyTask = toUpdate.NotifyTask;
-                    await fs.writeFile(FILENAME,JSON.stringify(tasks));
-                    return res.status(200).send("OK");
-                    }
-            })
-            return res.status(500);
-        }
-        else
-            return res.status(500);
-    }     
-    }
-);
-*/
-//#endregion

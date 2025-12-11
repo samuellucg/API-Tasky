@@ -21,23 +21,17 @@ async function CreateNewTask(req){
     try 
     {    
         var tasks = await ReadAndReturnJson() || tasksGlobal;
-        // console.log("after tasks");
-        // console.log("AFTER REQ TO CREATE:",tasks);
-        if (tasks){
-            console.log("Tasks antes do push:", JSON.stringify(tasks, null, 2));
-        
+        if (tasks){ 
             tasks.push(req.body);
-            console.log("AFTER PUSH TO CREATE:",tasks);
             await fs.writeFile(FILENAME,JSON.stringify(tasks));   
             return tasks;
         }
 
-        console.log("aquiiui")
         return null;
     } 
     
     catch (error) {
-        console.log('deu ruim irmao')
+        console.log('Error on CreateNewTask function:',error);
         return undefined;        
     }
 
@@ -47,10 +41,7 @@ async function UpdateTask(req){
     try 
     {                
         var tasks = await ReadAndReturnJson() || tasksGlobal;
-        tasks.filter(x => x!== null && x !== undefined);  
-        var toSave = tasks.filter(x => x.TaskId == Number(req.query.taskId))[0]; // trocar por find
-        // console.log("to save val",toSave);
-        // console.log("legn:",toSave.length);
+        var toSave = tasks.filter(x => x.TaskId == Number(req.query.taskId))[0];
         if(toSave)
         {
             toSave.TaskName = req.body.TaskName;
@@ -62,28 +53,15 @@ async function UpdateTask(req){
             for (const element of tasks) {
                 if(element.TaskId == Number(req.query.taskId))
                 {
-                    // console.log("HEREEEE");
                     element.TaskName = toSave.TaskName;
-                    // console.log("element:",element);
-                    // console.log("new data:", toSave);
                     element.TaskDesc = toSave.TaskDesc;
                     element.HourTask = toSave.HourTask;
                     element.NotifyTask = toSave.NotifyTask;
                     element.TaskDone = toSave.TaskDone;
-                    // console.log('going to return');
                     await fs.writeFile(FILENAME,JSON.stringify(tasks));
-                    // console.log('returned');
                     return true;
                 }
             }
-
-            /*
-            forEach, map, filter → não “esperam” Promises.
-
-            for...of, while, etc. → respeitam await e mantêm a sequência.
-
-            return dentro de um forEach não sai da função principal, só da callback.
-            */
         }
         else{
             return false;
@@ -91,6 +69,7 @@ async function UpdateTask(req){
     } 
 
     catch (error) {
+        console.log('Error on UpdateTask function:', error);
         return undefined;    
     }
 }
@@ -101,12 +80,9 @@ async function DeleteTask(req){
         var tasks = await ReadAndReturnJson() || tasksGlobal;
         
         if (tasks){
-            // console.log('on if delete');
             var newTasks = tasks.filter(x => x.TaskId != Number(req.query.taskId));
-            tasksGlobal = newTasks; // atualiza cache global antes de ser feito o delete.
-            // console.log('newTasks val:',newTasks);
+            tasksGlobal = newTasks;
             await fs.writeFile(FILENAME,JSON.stringify(newTasks));
-            // await new Promise(res => setTimeout(res, 100));
             return true
         }
 
@@ -116,6 +92,7 @@ async function DeleteTask(req){
     } 
     catch (error) 
     {
+        console.log('Error on DeleteTask function:', error);
         return undefined;
     }
 }
@@ -125,7 +102,6 @@ async function GetTasks(){
     {
         var tasks = await ReadAndReturnJson() || tasksGlobal;    
         if (tasks){        
-            console.log('Get Tasks Result:',tasks);
             return tasks;
         }
         else{
@@ -134,6 +110,7 @@ async function GetTasks(){
     }
     catch (error)
     {
+        console.log("Error on GetTasks:",error);
         return undefined;
     }
 }
@@ -142,16 +119,15 @@ async function getTaskId() {
     try 
     {
         let tasks = await ReadAndReturnJson() || tasksGlobal;
-
         if(!tasks.length) return 1;
-
-        const maxId = Math.max(...tasks.map(t => t.taskId));
-        // let id = tasks.length += 1;
+        let maxId = Math.max(...tasks.map(t => t.TaskId));
+        console.log(maxId);
         return maxId +=1;
     } 
     catch (error)
     {
-        console.error("error",error);
+        console.log("Error getTaskId:",error);
+        return false; // tratar
     }
 }
 
@@ -159,15 +135,10 @@ async function ReadAndReturnJson(){
     try {
         if(fsSync.existsSync(FILENAME)){   
             var fileSize =  await fs.stat(FILENAME).then(x => x.size);
-            // console.log("after filesize", fileSize);
             if(fileSize > 0){
-                // console.log("on if filesize");
                 var flag = await CompareFile();
-                // console.log("after flag");
-                if (flag){             
-                    // console.log("on flag");                         
+                if (flag){                                   
                     const data = await fs.readFile(FILENAME,'utf8');
-                    // console.log("going to return");
                     return JSON.parse(data);
                 }                
             }
@@ -197,11 +168,8 @@ async function DataIntoDatabase(){
 async function CompareFile(){
     const stream = fsSync.createReadStream(FILENAME);
     const hash = crypto.createHash('sha256');
-    // console.log("on compare file function");
     if(!hasInitialized){        
-        // console.log("on !hasinitialized");
         const databaseHash = await new Promise((resolve, reject) => {
-            // console.log("inside hash");
             stream.on('data', chunk => hash.update(chunk));
             stream.on('end', () => resolve(hash.digest('hex')));
             stream.on('error', reject);
@@ -209,32 +177,87 @@ async function CompareFile(){
 
         hashToSave = databaseHash;
         hasInitialized = true;
-        // console.log("going to return on compare file function");
         return true;        
     }
 
     else{
-        // console.log("on compare file else");
         var databaseHash = await new Promise((resolve, reject) => {
-            // console.log("on database hash in else compare function");
             stream.on('data', chunk => hash.update(chunk));
             stream.on('end', () => resolve(hash.digest('hex')));
             stream.on('error',reject);
         });
-
-        // console.log("database hash compare function",databaseHash);
-        // console.log("hashtosave",hashToSave);
             
         if(hashToSave != databaseHash){
-            // console.log('Creating new hash');
             hashToSave = databaseHash;
             await HashLog();
             return true;
         }
-        // console.log("not different");
+
         return false;
     }
 }
+
+async function checkDateAndHour(type,field){
+    switch (type) {
+        case 'hour':
+            return await validateHour(field);
+
+        case 'date':
+            return await validateDate(field);
+
+        default:
+            return undefined;
+    }
+}
+
+async function validateHour(hourFromUser){
+    try 
+    {
+        hourFromUser = hourFromUser.trim();
+        const flagColon = hourFromUser.includes(':');
+        if (hourFromUser.length == 5 && flagColon){
+            const [minutes,seconds] = hourFromUser.split(':');
+            console.log('min:',minutes);
+            console.log('sec:',seconds);
+
+            if (minutes >= 0 && minutes <= 23 && seconds >= 0 && seconds <= 59){
+                return true;
+            }
+            return false;
+        }
+        return false;
+
+    } 
+    catch (error) 
+    {
+        console.log('Error on validateHour:',error);
+        return undefined;
+    }
+}
+
+async function validateDate(dataFromUser){
+    try
+    {
+        dataFromUser = dataFromUser.trim();
+        const flagBar1 = dataFromUser.includes('/',2);
+        const flagBar2 = dataFromUser.includes('/',5);
+        if (dataFromUser.length != 10 && flagBar1, flagBar2){
+            const [day,month,year] = dataFromUser.split('/');
+            const validateDate = new Date(Number(year),Number(month-1),Number(day));        
+            if (validateDate instanceof Date && validateDate != 'Invalid Date'){
+                return true;
+            }
+            return false;
+        }
+        return false;
+    } 
+    catch (error) 
+    {
+        console.log('Error on validateDate:',error);
+        return undefined;
+    }
+}
+
 
 async function HashLog(){
     const dateToLog = new Date();
@@ -255,5 +278,6 @@ module.exports =
     UpdateTask,
     DeleteTask,
     startApi,
-    getTaskId
+    getTaskId,
+    checkDateAndHour
 };
