@@ -24,6 +24,10 @@ app.use('/tasks',taskRoutes);
 
 app.post("/api/telegram/webhook", telHand.routesTelegram);
 
+setInterval(() => {
+    telHand.checkNotification();
+}, 60000);
+
 app.listen(PORT, () => {
     taskService.startApi();
     console.log(`Api running on port ${PORT}\n`);    

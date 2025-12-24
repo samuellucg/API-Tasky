@@ -9,6 +9,7 @@ let errorCounter = 0;
 let app;
 let bot;
 let port;
+let chatId;
 const OLD_FILENAME = '../Data/Database.json' 
 const FILENAME = path.join(__dirname, '../data/Database.json');
 
@@ -27,7 +28,7 @@ async routesTelegram(req,res){
     // console.log(req.body);
     if(req.body.message)
     {
-        const chatId = req.body.message.chat.id;
+        chatId = req.body.message.chat.id;
         
         if(states[chatId]){
             const actualState = states[chatId];
@@ -243,8 +244,10 @@ async routesTelegram(req,res){
                 states[chatId] = {
                     phase : 'nameCreate',
                     form : {
-                        'TaskName' : '', 'NotifyTask' : '', 'TaskDesc' : '', 'HourTask' : '', 
-                        'IsEditingTask' : false, 'CanChange' : true, 'TaskId' : idTask ,'TaskDone' : false, 'hour' : '', 'date' : ''
+                        'TaskId' : idTask, 'TaskName' : '', 'NotifyTask' : true, 'TaskDesc' : '', 'HourTask' : '', 
+                        'IsEditingTask' : false, 'CanChange' : true,'TaskDone' : false, 'hour' : '', 'date' : '', 'Notifications' : {
+                            "Sent15min" : true, "Sent5min" : true
+                        }
                     }
                 }
                 return res.sendStatus(200);
@@ -446,6 +449,26 @@ parseBrazilianDate(str) {
 
   const localISO = iso.slice(0, 19) + `${sign}${offsetHr}:${offsetMn}`;
   return localISO;
+}
+
+async checkNotification(){
+    try {
+        var arrToNofity =  await services.checkNotifcationsOnTasks();
+        if(!arrToNofity.length) return undefined;    
+
+        let message = "🗒️ *Suas tarefa:*\n\n";
+        arrToNofity.forEach(item => {
+            message += `📋 *Tarefa:* ${item.task.TaskName}\n`;
+            message += `📝 *Descrição:* ${item.task.TaskDesc}\n`;
+            var alertMessage = item.type === '15min' ? 'Faltam 15 minutos para ser concluida' : 'Faltam 5 minutos para ser concluida'
+            message += alertMessage;
+        });
+
+        await this.bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    } 
+    catch (error) {
+        console.log("Error on checkNotifications:",error);
+    }
 }
 
 }

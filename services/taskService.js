@@ -158,8 +158,11 @@ async function ReadAndReturnJson(){
 
 async function DataIntoDatabase(){
     console.log(`${FILENAME} don't exist, creating...`);
+    // const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
+    //     "IsEditingTask": false, "CanChange": true, "TaskDone" : false
+    // }]
     const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
-        "IsEditingTask": false, "CanChange": true, "TaskDone" : false
+        "IsEditingTask": false, "CanChange": true, "TaskDone" : false, "notifications" : {"sent15min" : false, "sent5min" : false}
     }]
     await fs.writeFile(FILENAME,JSON.stringify(firstObject));        
     console.log(`${FILENAME} created.`);    
@@ -258,6 +261,42 @@ async function validateDate(dataFromUser){
     }
 }
 
+async function checkNotifcationsOnTasks(){
+    const now = new Date();
+    var tasksToNotify = [];
+    var tasks = await ReadAndReturnJson() || tasksGlobal;    
+    if(!tasks.length) return [];
+    var tasksFiltered = tasks.filter(x => x. TaskDone !== true);
+    if (!tasksFiltered.length) return [];
+
+    for (var task of tasksFiltered) {
+        var dateTask = new Date(task.HourTask)
+        const diffMs = dateTask - now;
+        const diffMin = Math.floor(diffMs / 1000 / 60);
+
+        // console.log('dif min:',diffMin);
+
+        if (diffMin > 0){        
+            if(diffMin == 15 && !task.Notifications.Sent15min){
+                tasksToNotify.push({task, type: '15min'});
+                task.Notifications.Sent15min = true;
+            }
+
+            else if (diffMin == 5 && !task.Notifications.Sent5min){
+                tasksToNotify.push({task, type: '5min'});
+                task.Notifications.Sent5min = true;
+            }
+
+            else if (diffMin == 0 && task.Notifications.Sent15min && task.Notifications.Sent5min)
+                task.TaskDone = true;
+        }
+    }
+
+    await fs.writeFile(FILENAME,JSON.stringify(tasks));
+    return tasksToNotify;
+}
+
+
 
 async function HashLog(){
     const dateToLog = new Date();
@@ -279,5 +318,6 @@ module.exports =
     DeleteTask,
     startApi,
     getTaskId,
-    checkDateAndHour
+    checkDateAndHour,
+    checkNotifcationsOnTasks
 };
