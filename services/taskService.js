@@ -7,6 +7,7 @@ const path = require('path');
 const { start } = require('repl');
 const OLD_FILENAME = '../Data/Database.json' 
 const FILENAME = path.join(__dirname, '../data/Database.json');
+const DATA_DIR = path.dirname(FILENAME);
 var hasInitialized = false;
 var hashToSave;
 var tasksGlobal;
@@ -158,6 +159,9 @@ async function ReadAndReturnJson(){
 
 async function DataIntoDatabase(){
     console.log(`${FILENAME} don't exist, creating...`);
+
+    await fs.mkdir(DATA_DIR, {recursive: true});
+
     // const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
     //     "IsEditingTask": false, "CanChange": true, "TaskDone" : false
     // }]
