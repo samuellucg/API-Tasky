@@ -224,6 +224,7 @@ async routesTelegram(req,res){
                     await this.bot.sendMessage(req.body.message.chat.id, message, { parse_mode: "Markdown" });
                     return res.sendStatus(200);
                 }
+                console.log('Get Tasks Return: ',read);
                 let badMessage = "Problema ao ler tasks, tente novamente";
                 await this.bot.sendMessage(req.body.message.chat.id, badMessage, { parse_mode: "Markdown" });
                 return res.sendStatus(404);
