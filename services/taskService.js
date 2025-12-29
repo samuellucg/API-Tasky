@@ -102,7 +102,8 @@ async function GetTasks(){
     try
     {
         var tasks = await ReadAndReturnJson() || tasksGlobal; 
-        console.log('tasks on getTasks:', tasks);   
+        console.log('tasks on getTasks:', tasks); 
+        console.log('task global:', tasksGlobal); 
         if (tasks){        
             return tasks;
         }
