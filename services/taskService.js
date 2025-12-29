@@ -176,36 +176,60 @@ async function DataIntoDatabase(){
     console.log(`${FILENAME} created.`);    
 }
 
-async function CompareFile(){
-    const stream = fsSync.createReadStream(FILENAME);
-    const hash = crypto.createHash('sha256');
-    if(!hasInitialized){        
-        const databaseHash = await new Promise((resolve, reject) => {
-            stream.on('data', chunk => hash.update(chunk));
-            stream.on('end', () => resolve(hash.digest('hex')));
-            stream.on('error', reject);
-        });        
+// async function CompareFile2(){
+//     const stream = fsSync.createReadStream(FILENAME);
+//     const hash = crypto.createHash('sha256');
+//     if(!hasInitialized){        
+//         const databaseHash = await new Promise((resolve, reject) => {
+//             stream.on('data', chunk => hash.update(chunk));
+//             stream.on('end', () => resolve(hash.digest('hex')));
+//             stream.on('error', reject);
+//         });        
 
+//         hashToSave = databaseHash;
+//         hasInitialized = true;
+//         return true;        
+//     }
+
+//     else{
+//         var databaseHash = await new Promise((resolve, reject) => {
+//             stream.on('data', chunk => hash.update(chunk));
+//             stream.on('end', () => resolve(hash.digest('hex')));
+//             stream.on('error',reject);
+//         });
+            
+//         if(hashToSave != databaseHash){
+//             hashToSave = databaseHash;
+//             await HashLog();
+//             return true;
+//         }
+
+//         return false;
+//     }
+// }
+
+async function CompareFile() {
+    const hash = crypto.createHash('sha256');
+    const databaseHash = await new Promise((resolve, reject) => {
+        const stream = fsSync.createReadStream(FILENAME);
+        stream.on('data', chunk => hash.update(chunk));
+        stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', reject);
+    });        
+    
+    if(!hasInitialized){        
         hashToSave = databaseHash;
         hasInitialized = true;
         return true;        
     }
 
-    else{
-        var databaseHash = await new Promise((resolve, reject) => {
-            stream.on('data', chunk => hash.update(chunk));
-            stream.on('end', () => resolve(hash.digest('hex')));
-            stream.on('error',reject);
-        });
-            
-        if(hashToSave != databaseHash){
-            hashToSave = databaseHash;
-            await HashLog();
-            return true;
-        }
-
-        return false;
+    if(hashToSave !== databaseHash){
+        hashToSave = databaseHash;
+        await HashLog();
+        return true;
     }
+
+    return false;
 }
 
 async function checkDateAndHour(type,field){
