@@ -145,8 +145,11 @@ async function ReadAndReturnJson(){
                 if (flag){                                
                     console.log('flag is true');
                     const data = await fs.readFile(FILENAME,'utf8');
-                    return JSON.parse(data);
-                }                
+                    tasksGlobal = JSON.parse(data);
+                    return tasksGlobal;
+                }  
+                console.log("tasks global if flag != true:\n",tasksGlobal);
+                return tasksGlobal;              
             }
             else{                
                 await DataIntoDatabase();
