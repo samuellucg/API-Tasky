@@ -101,7 +101,8 @@ async function DeleteTask(req){
 async function GetTasks(){
     try
     {
-        var tasks = await ReadAndReturnJson() || tasksGlobal;    
+        var tasks = await ReadAndReturnJson() || tasksGlobal; 
+        console.log('tasks on getTasks:', tasks);   
         if (tasks){        
             return tasks;
         }
@@ -135,10 +136,13 @@ async function getTaskId() {
 async function ReadAndReturnJson(){
     try {
         if(fsSync.existsSync(FILENAME)){   
+            console.log('on ReadAndReturnJson fileExist');
             var fileSize =  await fs.stat(FILENAME).then(x => x.size);
             if(fileSize > 0){
+                console.log('Filesize > 0');
                 var flag = await CompareFile();
-                if (flag){                                   
+                if (flag){                                
+                    console.log('flag is true');
                     const data = await fs.readFile(FILENAME,'utf8');
                     return JSON.parse(data);
                 }                
