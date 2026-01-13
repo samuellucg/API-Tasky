@@ -1,6 +1,7 @@
 const fsNotPromises = require('fs'); 
 const fsPromisses = require('fs/promises');
 const crypto = require('crypto');
+const dbService = require('../data/taskRepository');
 const fs = fsPromisses;
 const fsSync = fsNotPromises;
 const path = require('path');
@@ -16,8 +17,9 @@ console.log('ACTUAL FILE PATH:',FILENAME);
 
 const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
     And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
-        Im: "Creating tasky api, but we least got the app v1 created!"}]
-
+        Im: "Creating tasky api, but we least got the app v1 created!"}];
+    
+//#region CrudTasks
 async function CreateNewTask(req){
     try 
     {    
@@ -134,6 +136,9 @@ async function getTaskId() {
     }
 }
 
+//#endregion
+
+//#region Functions
 async function ReadAndReturnJson(){
     try {
         if(fsSync.existsSync(FILENAME)){   
@@ -180,38 +185,6 @@ async function DataIntoDatabase(){
     console.log(`${FILENAME} created.`);    
 }
 
-// async function CompareFile2(){
-//     const stream = fsSync.createReadStream(FILENAME);
-//     const hash = crypto.createHash('sha256');
-//     if(!hasInitialized){        
-//         const databaseHash = await new Promise((resolve, reject) => {
-//             stream.on('data', chunk => hash.update(chunk));
-//             stream.on('end', () => resolve(hash.digest('hex')));
-//             stream.on('error', reject);
-//         });        
-
-//         hashToSave = databaseHash;
-//         hasInitialized = true;
-//         return true;        
-//     }
-
-//     else{
-//         var databaseHash = await new Promise((resolve, reject) => {
-//             stream.on('data', chunk => hash.update(chunk));
-//             stream.on('end', () => resolve(hash.digest('hex')));
-//             stream.on('error',reject);
-//         });
-            
-//         if(hashToSave != databaseHash){
-//             hashToSave = databaseHash;
-//             await HashLog();
-//             return true;
-//         }
-
-//         return false;
-//     }
-// }
-
 async function CompareFile() {
     const hash = crypto.createHash('sha256');
     const databaseHash = await new Promise((resolve, reject) => {
@@ -249,6 +222,21 @@ async function checkDateAndHour(type,field){
     }
 }
 
+async function HashLog(){
+    const dateToLog = new Date();
+    const logInfo = `${dateToLog.toLocaleDateString("pt-br")} at ${dateToLog.toLocaleTimeString("pt-br")}`;
+    const logToWrite = `Hash created: ${hashToSave} in ${logInfo}\n`;
+    await fs.appendFile('HashLog.txt', logToWrite);
+}
+
+async function startApi(){
+    console.log("global seted");
+    tasksGlobal = await ReadAndReturnJson();
+}
+
+//#endregion
+
+//#region Validation Functions
 async function validateHour(hourFromUser){
     try 
     {
@@ -331,20 +319,38 @@ async function checkNotifcationsOnTasks(){
     await fs.writeFile(FILENAME,JSON.stringify(tasks));
     return tasksToNotify;
 }
+//#endregion
 
+//#region DB
 
-
-async function HashLog(){
-    const dateToLog = new Date();
-    const logInfo = `${dateToLog.toLocaleDateString("pt-br")} at ${dateToLog.toLocaleTimeString("pt-br")}`;
-    const logToWrite = `Hash created: ${hashToSave} in ${logInfo}\n`;
-    await fs.appendFile('HashLog.txt', logToWrite);
+async function GetAllTasksFromDb(){
+    return await dbService.GetAllTasks();
 }
 
-async function startApi(){
-    console.log("global seted");
-    tasksGlobal = await ReadAndReturnJson();
+async function GetAllTasksByUserFromDb(userId){
+    return await dbService.GetAllTasksFromUser(userId);
 }
+
+async function DeleteTaskByUserFromDb(taskId){
+    return await dbService.DeleteTask(taskId);
+}
+
+async function GetAllNotificationsFromDb(){
+    return await dbService.GetAllNotifications();
+}
+
+async function GetAllNotificationsByTaskFromDb(taskId){
+    return await dbService.GetNotificationsFromTask(taskId);
+}
+
+async function GetAllUsersFromDb(){
+    return await dbService.GetAllUsers();
+}
+
+//#endregion
+
+
+
 
 module.exports = 
 {
@@ -355,5 +361,11 @@ module.exports =
     startApi,
     getTaskId,
     checkDateAndHour,
-    checkNotifcationsOnTasks
+    checkNotifcationsOnTasks,
+    GetAllTasksFromDb,
+    GetAllTasksByUserFromDb,
+    DeleteTaskByUserFromDb,
+    GetAllNotificationsFromDb,
+    GetAllNotificationsByTaskFromDb,
+    GetAllUsersFromDb
 };

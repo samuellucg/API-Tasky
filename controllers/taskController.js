@@ -79,7 +79,7 @@ module.exports = {
         return res.status(200).send("OK");
     },
     test: async(req,res) => {
-        await taskService.checkNotifcationsOnTasks();
-        return res.status(200).send("OK");
+        var data = await taskService.GetAllUsersFromDb();
+        return res.status(200).send(data);
     }
 };
