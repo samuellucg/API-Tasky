@@ -12,8 +12,8 @@ const DATA_DIR = path.dirname(FILENAME);
 var hasInitialized = false;
 var hashToSave;
 var tasksGlobal;
-console.log('OLD FILE PATH:',OLD_FILENAME);
-console.log('ACTUAL FILE PATH:',FILENAME);
+// console.log('OLD FILE PATH:',OLD_FILENAME);
+// console.log('ACTUAL FILE PATH:',FILENAME);
 
 const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
     And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
@@ -327,12 +327,20 @@ async function GetAllTasksFromDb(){
     return await dbService.GetAllTasks();
 }
 
-async function GetAllTasksByUserFromDb(userId){
-    return await dbService.GetAllTasksFromUser(userId);
+async function CreateNewTaskFromDb(data){
+    return await dbService.CreateTask(data);
 }
 
 async function DeleteTaskByUserFromDb(taskId){
     return await dbService.DeleteTask(taskId);
+}
+
+async function EditTaskByUserFromDb(data){
+    return await dbService.EditTask(data);
+}
+
+async function GetAllTasksByUserFromDb(userId){
+    return await dbService.GetAllTasksFromUser(userId);
 }
 
 async function GetAllNotificationsFromDb(){
@@ -367,5 +375,7 @@ module.exports =
     DeleteTaskByUserFromDb,
     GetAllNotificationsFromDb,
     GetAllNotificationsByTaskFromDb,
-    GetAllUsersFromDb
+    GetAllUsersFromDb,
+    CreateNewTaskFromDb,
+    EditTaskByUserFromDb,
 };

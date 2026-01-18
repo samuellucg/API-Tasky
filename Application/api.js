@@ -25,25 +25,13 @@ app.use('/tasks',taskRoutes);
 
 app.post("/api/telegram/webhook", telHand.routesTelegram);
 
-// setInterval(() => {
-//     telHand.checkNotification();
-// }, 60000);
+setInterval(() => {
+    telHand.checkNotification();
+}, 60000);
 
-// setInterval(() => {
-//   testConnection();
-// }, 5000);
 
 app.listen(PORT, () => {
     taskService.startApi();
     console.log(`Api running on port ${PORT}\n`);    
-    console.log(token);
 });
 
-// async function testConnection() { 
-//   const result = await PgDatabase.query('SELECT * from tasks');
-//   // console.log(result.rows.length > 0)
-//   console.log(result.rows); // Toda tabela
-//   // console.log(result.rowCount);
-//   // console.log(result.oid);
-//   // console.log(result.rows[0]); // 
-// }
