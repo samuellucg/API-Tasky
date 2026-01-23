@@ -34,15 +34,15 @@ async routesTelegram(req,res){
             const actualState = states[chatId];
 
             switch (actualState.phase) {
-                case 'name':
-                    actualState.form['name'] = req.body.message.text;
-                    actualState.phase = 'desc';
+                case 'TaskName':
+                    actualState.form['TaskName'] = req.body.message.text;
+                    actualState.phase = 'TaskDesc';
                     await this.bot.sendMessage(chatId, 'Agora envie a nova descrição');
                     return res.sendStatus(200);
 
-                case 'desc':
+                case 'TaskDesc':
                     actualState.phase = 'date';
-                    actualState.form['desc'] = req.body.message.text;
+                    actualState.form['TaskDesc'] = req.body.message.text;
                     await this.bot.sendMessage(chatId, 'Agora envie a nova data: \nOBS:Mantenha nesse formato: (DD/MM/YYYY)');
                     return res.sendStatus(200);
 
@@ -56,7 +56,7 @@ async routesTelegram(req,res){
 
                     var check = services.checkDateAndHour('date',req.body.message.text);
                     if (check){
-                        actualState.phase = 'hour';
+                        actualState.phase = 'HourTask';
                         actualState.form['date'] = req.body.message.text;
                         await this.bot.sendMessage(chatId, 'Agora envie o novo horário de conclusão da tarefa: \nOBS:Mantenha nesse formato: (00:00)');
                         errorCounter = 0;
@@ -66,7 +66,7 @@ async routesTelegram(req,res){
                     errorCounter+=1;
                     return res.sendStatus(200);
 
-                case 'hour':
+                case 'HourTask':
                     if(errorCounter == 5){
                         delete states[chatId];
                         await this.bot.sendMessage(chatId, 'Como não está sendo possível criar sua tarefa, tente novamente mais tarde');
@@ -76,8 +76,10 @@ async routesTelegram(req,res){
                     var check = await services.checkDateAndHour('hour',req.body.message.text);
                     
                     if(check){
-                        actualState.phase = 'notify';
-                        actualState.form['hour'] = req.body.message.text;
+                        let result = this.parseBrazilianDate(`${actualState.form['date']} - ${req.body.message.text}`)
+                        actualState.phase = 'NotifyTask';
+                        actualState.form['HourTask'] = result;
+                        delete actualState.form['date'];
                         await this.bot.sendMessage(chatId, 'Deseja notificar a tarefa? Envie Sim/Não ou (S/N) \n\nOBS: Qualquer mensagem diferente disso não irá notificar a mensagem')
                         return res.sendStatus(200);
                     }
@@ -87,21 +89,22 @@ async routesTelegram(req,res){
                     console.log('errorCounter:',errorCounter);
                     return res.sendStatus(200);
                     
-                case 'notify':
+                case 'NotifyTask':
                     var text = req.body.message.text.toUpperCase()
                     var result = (text === 'S' || text === 'SIM');
-                    actualState.form['notify'] = result;
+                    actualState.form['NotifyTask'] = result;
                     actualState.phase = 'done';
 
                 case 'done':
                     await this.bot.sendMessage(chatId,'Atualizando tarefa...');
 
-                    var returnStatus = await this.editTelegram(actualState.form);
-                    if (returnStatus != undefined && returnStatus != false){
+                    // var returnStatus = await this.editTelegram(actualState.form);
+                    var returnStatus = await services.EditTaskByUserFromDb(actualState.form);
+                    if (returnStatus){
                         var message = "🗒️ *Sua tarefa:*\n\n";
-                        message += `📋 *Tarefa:* ${returnStatus.TaskName}\n`;
-                        message += `📝 *Descrição:* ${returnStatus.TaskDesc}\n`;
-                        message += `📅 *Data:* ${new Date(returnStatus.HourTask).toLocaleDateString('pt-BR')}\n`;
+                        message += `📋 *Tarefa:* ${actualState.form.TaskName}\n`;
+                        message += `📝 *Descrição:* ${actualState.form.TaskDesc}\n`;
+                        message += `📅 *Data:* ${new Date(actualState.form.HourTask).toLocaleDateString('pt-BR')}\n`;
                         await this.bot.sendMessage(chatId, message, {parse_mode: 'Markdown'});
                         delete states[chatId];
                         errorCounter = 0;
@@ -181,9 +184,9 @@ async routesTelegram(req,res){
                     const responseObject = {
                         'body' : actualState.form
                     }
-                    var result = await services.CreateNewTask(responseObject);
-
-                    if(result != undefined && result != null){
+                    // var result = await services.CreateNewTask(responseObject);
+                    var result = await services.CreateNewTaskFromDb(responseObject.body);
+                    if(result){
                         var message = "🗒️ *Sua tarefa:*\n\n";
                         message += `📋 *Tarefa:* ${actualState.form.TaskName}\n`;
                         message += `📝 *Descrição:* ${actualState.form.TaskDesc}\n`;
@@ -209,12 +212,12 @@ async routesTelegram(req,res){
         if (req.body.message.text === '/tarefas')
         {
             try {
-                const read = await services.GetTasks();
-                if(read != false && read != undefined)
-                {
-                    const tasks = read;        
+                // const read = await services.GetTasks();
+                const read = await services.GetAllTasksFromDb();
+                if(read.length != 0)
+                {;        
                     let message = "🗒️ *Suas tarefas:*\n\n";
-                    tasks.forEach(task => {
+                    read.forEach(task => {
                         message += `📋 *Tarefa:* ${task.TaskName}\n`;
                         message += `📝 *Descrição:* ${task.TaskDesc}\n`;
                         message += `📅 *Data:* ${new Date(task.HourTask).toLocaleDateString('pt-BR')}\n`;
@@ -264,11 +267,11 @@ async routesTelegram(req,res){
         {
             try 
             {
-                const read = await services.GetTasks();
-                if(read != false && read != undefined)
-                {
-                    const tasks = read; 
-                    const buttons = tasks.map(t => ([{
+                // const read = await services.GetTasks();
+                const read = await services.GetAllTasksFromDb();
+                if(read.length != 0)
+                { 
+                    const buttons = read.map(t => ([{
                         text: t.TaskName,
                         callback_data: `editar:${t.TaskId}`
                     }]));
@@ -297,9 +300,10 @@ async routesTelegram(req,res){
         {
             try
             {
-                let tasks = await services.GetTasks();
+                // let tasks = await services.GetTasks();
+                let tasks = await services.GetAllTasksFromDb();
 
-                if (tasks != false && tasks != undefined){
+                if (tasks.length != 0){
                     const buttons = tasks.map(t => ([{
                         text: t.TaskName,
                         callback_data: `delete:${t.TaskId}`
@@ -334,21 +338,23 @@ async routesTelegram(req,res){
 
     if (req.body.callback_query)
     {
-        try{
+        try
+        {
             const query = req.body.callback_query;
             const messageId = query.message.message_id;
             const [action, taskId] = query.data.split(':');
             if (action === 'editar'){
                 await this.bot.deleteMessage(query.message.chat.id,messageId);
-                const tasks = await services.GetTasks(); 
+                // const tasks = await services.GetTasks();
+                const tasks = await services.GetAllTasksFromDb();
                 const taskFounded = tasks.find(t => t.TaskId === Number(taskId));
                 await this.bot.sendMessage(query.message.chat.id, `📝 Editando tarefa: ${taskFounded.TaskName}\nEnvie o novo nome da tarefa:`);
 
                 states[query.message.chat.id] = {
-                    phase : 'name',
+                    phase : 'TaskName',
                     id: taskFounded.TaskId,
                     form: {
-                        "id":taskFounded.TaskId ,"name" : "", "desc" : "", "hour" : "","notify" : "", "date": ""
+                        "TaskId":taskFounded.TaskId ,"TaskName" : "", "TaskDesc" : "", "HourTask" : "","NotifyTask" : "", "date": ""
                     }
                 };
             }
@@ -361,7 +367,8 @@ async routesTelegram(req,res){
                     }
                 }
 
-                let response = await services.DeleteTask(responseObject);
+                // let response = await services.DeleteTask(responseObject);
+                let response = await services.DeleteTaskByUserFromDb(responseObject.query.taskId);
 
                 if(response)
                     await this.bot.sendMessage(query.message.chat.id,'Tarefa deletada');
@@ -425,6 +432,8 @@ async editTelegram(req) {
 
 parseBrazilianDate(str) {
   const [datePart, timePart] = str.split(" - ");
+  console.log('datePart:',datePart);
+  console.log('timePart:',timePart);
   if (!datePart || !timePart) return null;
 
   const [day, month, year] = datePart.split("/").map(Number);

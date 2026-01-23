@@ -104,8 +104,8 @@ async function GetTasks(){
     try
     {
         var tasks = await ReadAndReturnJson() || tasksGlobal; 
-        console.log('tasks on getTasks:', tasks); 
-        console.log('task global:', tasksGlobal); 
+        // console.log('tasks on getTasks:', tasks); 
+        // console.log('task global:', tasksGlobal); 
         if (tasks){        
             return tasks;
         }
@@ -123,7 +123,8 @@ async function GetTasks(){
 async function getTaskId() {
     try 
     {
-        let tasks = await ReadAndReturnJson() || tasksGlobal;
+        // let tasks = await ReadAndReturnJson() || tasksGlobal;
+        let tasks = await dbService.GetAllTasks();
         if(!tasks.length) return 1;
         let maxId = Math.max(...tasks.map(t => t.TaskId));
         console.log(maxId);
@@ -153,7 +154,6 @@ async function ReadAndReturnJson(){
                     tasksGlobal = JSON.parse(data);
                     return tasksGlobal;
                 }  
-                console.log("tasks global if flag != true:\n",tasksGlobal);
                 return tasksGlobal;              
             }
             else{                
@@ -175,9 +175,6 @@ async function DataIntoDatabase(){
 
     await fs.mkdir(DATA_DIR, {recursive: true});
 
-    // const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
-    //     "IsEditingTask": false, "CanChange": true, "TaskDone" : false
-    // }]
     const firstObject = [{ "TaskId": 1, "TaskName": "Tarefa generica", "NotifyTask" : false, "TaskDesc": "DescGenerica", "HourTask": "2080-12-21T00:00:00-04:00",                
         "IsEditingTask": false, "CanChange": true, "TaskDone" : false, "notifications" : {"sent15min" : false, "sent5min" : false}
     }]
@@ -244,8 +241,8 @@ async function validateHour(hourFromUser){
         const flagColon = hourFromUser.includes(':');
         if (hourFromUser.length == 5 && flagColon){
             const [minutes,seconds] = hourFromUser.split(':');
-            console.log('min:',minutes);
-            console.log('sec:',seconds);
+            // console.log('min:',minutes);
+            // console.log('sec:',seconds);
 
             if (minutes >= 0 && minutes <= 23 && seconds >= 0 && seconds <= 59){
                 return true;
