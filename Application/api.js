@@ -9,7 +9,8 @@ const taskRoutes = require('../routes/tasks.js');
 const PORT = process.env.PORT;
 const taskService = require('../services/taskService.js');
 const TelegramHandler = require('../bot/telegramWebhook.js');
-const PgDatabase = require('../data/pg.js');
+const {createServer} = require('http');
+const {InitSocket} = require('./socket.js')
 
 // const resJson = [{ICreate: "ApiTasky", Who: "SL MADE THIS"}, {NotifcationBy: "FCM", MadeBy: "Google"},{
 //     And: "We gonna mix that!", Productors: "SL + FCM"}, {FirstDay: "Today i'ts 20:28 01/09/2025", 
@@ -30,8 +31,12 @@ setInterval(() => {
 }, 60000);
 
 
-app.listen(PORT, () => {
+const httpServer = createServer(app);
+InitSocket(httpServer);
+
+httpServer.listen(PORT, () => {
     taskService.startApi();
-    console.log(`Api running on port ${PORT}\n`);    
+    console.log(`Api running on port ${PORT}\n`);
 });
+
 

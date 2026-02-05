@@ -12,6 +12,7 @@ const DATA_DIR = path.dirname(FILENAME);
 var hasInitialized = false;
 var hashToSave;
 var tasksGlobal;
+const {EmitEvent} = require('../Application/socket.js');
 // console.log('OLD FILE PATH:',OLD_FILENAME);
 // console.log('ACTUAL FILE PATH:',FILENAME);
 
@@ -26,7 +27,7 @@ async function CreateNewTask(req){
         var tasks = await ReadAndReturnJson() || tasksGlobal;
         if (tasks){ 
             tasks.push(req.body);
-            await fs.writeFile(FILENAME,JSON.stringify(tasks));   
+            await fs.writeFile(FILENAME,JSON.stringify(tasks)); 
             return tasks;
         }
 
@@ -325,15 +326,30 @@ async function GetAllTasksFromDb(){
 }
 
 async function CreateNewTaskFromDb(data){
-    return await dbService.CreateTask(data);
+    if(await dbService.CreateTask(data)){
+        EmitEvent("HasChangedEvent","HasChanged");
+        return true;
+    }
+    console.log("Falha ao criar tarefa!");
+    return false;
 }
 
 async function DeleteTaskByUserFromDb(taskId){
-    return await dbService.DeleteTask(taskId);
+    if(await dbService.DeleteTask(taskId)){
+        EmitEvent("HasChangedEvent","HasChanged");
+        return true;
+    }
+    console.log("Falha ao deletar tarefa!");
+    return false;
 }
 
 async function EditTaskByUserFromDb(data){
-    return await dbService.EditTask(data);
+    if(await dbService.EditTask(data)){
+        EmitEvent("HasChangedEvent","HasChanged");
+        return true;
+    }
+    console.log("Falha ao editar tarefa!");
+    return false;
 }
 
 async function GetAllTasksByUserFromDb(userId){
@@ -354,6 +370,11 @@ async function GetAllUsersFromDb(){
 
 //#endregion
 
+//#region TestSocket
+async function TestSocket(){
+    EmitEvent("TestApi","lalalal");
+}
+//#endregion
 
 
 
@@ -375,4 +396,5 @@ module.exports =
     GetAllUsersFromDb,
     CreateNewTaskFromDb,
     EditTaskByUserFromDb,
+    TestSocket
 };

@@ -66,7 +66,7 @@ module.exports = {
         return res.status(200).send("OK");
     },
     test: async(req,res) => {
-        var data = await taskService.GetAllUsersFromDb();
+        var data = await taskService.TestSocket();
         return res.status(200).send(data);
     }
 };
