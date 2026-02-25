@@ -321,6 +321,12 @@ async function checkNotifcationsOnTasks(){
 
 //#region DB
 
+async function GetOrCreateUser(chatId){
+    // return await dbService.GetOrCreateUser(chatId);
+    return await dbService.GetOrCreateUser(chatId);
+}
+
+
 async function GetAllTasksFromDb(){
     return await dbService.GetAllTasks();
 }
@@ -334,8 +340,8 @@ async function CreateNewTaskFromDb(data){
     return false;
 }
 
-async function DeleteTaskByUserFromDb(taskId){
-    if(await dbService.DeleteTask(taskId)){
+async function DeleteTaskByUserFromDb(taskId,userId){
+    if(await dbService.DeleteTask(taskId,userId)){
         EmitEvent("HasChangedEvent","HasChanged");
         return true;
     }
@@ -343,8 +349,8 @@ async function DeleteTaskByUserFromDb(taskId){
     return false;
 }
 
-async function EditTaskByUserFromDb(data){
-    if(await dbService.EditTask(data)){
+async function EditTaskByUserFromDb(data,chatId){
+    if(await dbService.EditTask(data,chatId)){
         EmitEvent("HasChangedEvent","HasChanged");
         return true;
     }
@@ -396,5 +402,6 @@ module.exports =
     GetAllUsersFromDb,
     CreateNewTaskFromDb,
     EditTaskByUserFromDb,
+    GetOrCreateUser,
     TestSocket
 };
