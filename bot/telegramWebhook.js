@@ -470,18 +470,14 @@ parseBrazilianDate(str) {
 async checkNotification(){
     try {
         var arrToNofity =  await services.checkNotifcationsOnTasks();
-        if(!arrToNofity.length) return undefined;    
+        if(!arrToNofity.length) return undefined;
 
-        let message = "🗒️ *Suas tarefa:*\n\n";
+        // TODO: Implementar notificação por usuário - requer relacionamento entre tarefa e usuário
+        // Por enquanto, essa função apenas loga no console
         arrToNofity.forEach(item => {
-            message += `📋 *Tarefa:* ${item.task.TaskName}\n`;
-            message += `📝 *Descrição:* ${item.task.TaskDesc}\n`;
-            var alertMessage = item.type === '15min' ? 'Faltam 15 minutos para ser concluida' : 'Faltam 5 minutos para ser concluida'
-            message += alertMessage;
+            console.log(`🔔 Notificação: ${item.task.TaskName} - ${item.type}`);
         });
-
-        await this.bot.sendMessage(user.chat_id, message, { parse_mode: "Markdown" });
-    } 
+    }
     catch (error) {
         console.log("Error on checkNotifications:",error);
     }

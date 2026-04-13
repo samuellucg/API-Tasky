@@ -6,3 +6,5 @@ to-do.txt
 node_modules\
 node_modules
 node_modules\.bin
+boardBullMq.js
+.claude/
