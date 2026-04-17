@@ -13,6 +13,7 @@ var hasInitialized = false;
 var hashToSave;
 var tasksGlobal;
 const {EmitEvent} = require('../Application/socket.js');
+const { response } = require('express');
 // console.log('OLD FILE PATH:',OLD_FILENAME);
 // console.log('ACTUAL FILE PATH:',FILENAME);
 
@@ -128,7 +129,6 @@ async function getTaskId() {
         let tasks = await dbService.GetAllTasks();
         if(!tasks.length) return 1;
         let maxId = Math.max(...tasks.map(t => t.TaskId));
-        console.log(maxId);
         return maxId +=1;
     } 
     catch (error)
@@ -144,13 +144,11 @@ async function getTaskId() {
 async function ReadAndReturnJson(){
     try {
         if(fsSync.existsSync(FILENAME)){   
-            console.log('on ReadAndReturnJson fileExist');
             var fileSize =  await fs.stat(FILENAME).then(x => x.size);
             if(fileSize > 0){
                 console.log('Filesize > 0');
                 var flag = await CompareFile();
                 if (flag){                                
-                    console.log('flag is true');
                     const data = await fs.readFile(FILENAME,'utf8');
                     tasksGlobal = JSON.parse(data);
                     return tasksGlobal;
@@ -228,7 +226,6 @@ async function HashLog(){
 }
 
 async function startApi(){
-    console.log("global seted");
     tasksGlobal = await ReadAndReturnJson();
 }
 
@@ -332,7 +329,22 @@ async function GetAllTasksFromDb(){
 }
 
 async function CreateNewTaskFromDb(data){
-    if(await dbService.CreateTask(data)){
+    const { chatId, ...taskData } = data;
+    let repositoryData;
+    if(data.body != undefined){
+        repositoryData = {
+            id: chatId,
+            body: taskData.body
+        };
+    }
+    else{
+        repositoryData = {
+            id: chatId,
+            body: taskData
+        }
+    };
+
+    if(await dbService.CreateTask(repositoryData)){
         EmitEvent("HasChangedEvent","HasChanged");
         return true;
     }

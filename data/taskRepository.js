@@ -67,16 +67,15 @@ async function EditTask(params,chatId){
             if(key.includes("TaskId"))
                 continue;
             else if(key.includes("TaskDone")){
-                query += `"${key}" = ${value},`
+                query += `"${key}" = ${value}, `
                 continue;
             }
             else if(key.includes("NotifyTask")){
-                query += `"${key}" = ${value}`
+                query += `"${key}" = ${value} `
                 continue;
             } 
             query += ` "${key}" = '${value}',`
         } 
-
         const result = await PgDatabase.query(`${query} WHERE tasks."TaskId" = $1 AND tasks.user_id = $2`,[taskId,userId.id])
         return result.rowCount > 0; 
         
@@ -125,12 +124,20 @@ async function GetOrCreateUser(chatId){
     {
         let getUser = await PgDatabase.query("SELECT * FROM USERS WHERE chat_id = $1",[chatId]);
         if(getUser.rowCount > 0){
-            return getUser.rows[0];        
+            return getUser.rows[0];
         }
         else
         {
+            if(chatId == "1" || chatId == 1){
+                let getUserById = await PgDatabase.query("SELECT * FROM USERS WHERE id = $1",[1]);
+
+                if(getUserById.rowCount > 0){
+                    return getUserById.rows[0];
+                }
+            }
+
             let createUser = await PgDatabase.query("INSERT INTO USERS (chat_id) VALUES ($1)",[chatId]);
-            
+
             if(createUser.rowCount > 0){
                 let getUser = await PgDatabase.query("SELECT * FROM USERS WHERE chat_id = $1",[chatId]);
                 return getUser.rows[0];

@@ -15,10 +15,24 @@ module.exports = {
             return res.status(500).json({ error: "Internal server error" });
         }
     },
+    getAllFromUser: async (req, res) => {
+        try {
+            const { userId } = req.query;
+            const tasks = await taskService.GetAllTasksByUserFromDb(userId);
+            if (tasks) {
+                return res.status(200).json(tasks);
+            }
+            return res.status(404).json({ error: "No tasks found" });
+        } catch (error) {
+            console.error("Error in getAll:", error.message);
+            return res.status(500).json({ error: "Internal server error" });
+        }
+    },
     create: async (req, res) => {
         try {
-            const dto = new taskCreateDto(req.body);
-            const result = await taskService.CreateNewTaskFromDb(dto);
+            const { chatId, ...taskData } = req.body;
+            const dto = new taskCreateDto(taskData.body);
+            const result = await taskService.CreateNewTaskFromDb({ ...dto, chatId });
             if (result) {
                 return res.status(201).json({ message: "Task created successfully" });
             }
@@ -30,8 +44,9 @@ module.exports = {
     },
     update: async (req, res) => {
         try {
-            const dto = new updateTaskDto(req.body);
-            const result = await taskService.EditTaskByUserFromDb(dto);
+            const { chatId, ...taskData } = req.body;
+            const dto = new updateTaskDto(taskData);
+            const result = await taskService.EditTaskByUserFromDb(dto, chatId);
             if (result) {
                 return res.status(200).json({ message: "Task updated successfully" });
             }
@@ -43,7 +58,9 @@ module.exports = {
     },
     delete: async (req, res) => {
         try {
-            const result = await taskService.DeleteTaskByUserFromDb(req.params.taskId);
+            const { taskId } = req.params;
+            const { userId } = req.query;
+            const result = await taskService.DeleteTaskByUserFromDb(taskId, userId);
             if (result) {
                 return res.status(200).json({ message: "Task deleted successfully" });
             }

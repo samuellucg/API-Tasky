@@ -184,6 +184,8 @@ async routesTelegram(req,res){
                         'id' : user.chat_id,
                         'body' : actualState.form
                     }
+
+                    console.log('data response:',responseObject);
                     var result = await services.CreateNewTaskFromDb(responseObject);
                     if(result){
                         var message = "🗒️ *Sua tarefa:*\n\n";
@@ -227,7 +229,6 @@ async routesTelegram(req,res){
                     await this.bot.sendMessage(user.chat_id, message, { parse_mode: "Markdown" });
                     return res.sendStatus(200);
                 }
-                console.log('Get Tasks Return: ',read);
                 let badMessage = "Problema ao ler tasks, tente novamente";
                 await this.bot.sendMessage(user.chat_id, badMessage, { parse_mode: "Markdown" });
                 return res.sendStatus(404);
@@ -345,16 +346,13 @@ async routesTelegram(req,res){
             const query = req.body.callback_query;
             const messageId = query.message.message_id;
             const [action, taskId] = query.data.split(':');
-            console.log('id',taskId)
             if (action === 'editar'){
                 await this.bot.deleteMessage(query.message.chat.id,messageId);
                 // const tasks = await services.GetTasks();
                 // const tasks = await services.GetAllTasksFromDb();
                 const tasks = await services.GetAllTasksByUserFromDb(query.message.chat.id);
-                console.log("All tasks:",tasks);
                 // const taskFounded = tasks.find(t => t.TaskId === Number(taskId));
                 const taskFounded = tasks.find(t => t.TaskId == Number(taskId));
-                console.log("taskFounded:",taskFounded);
                 await this.bot.sendMessage(query.message.chat.id, `📝 Editando tarefa: ${taskFounded.TaskName}\nEnvie o novo nome da tarefa:`);
 
                 states[query.message.chat.id] = {
@@ -438,8 +436,6 @@ async editTelegram(req) {
 
 parseBrazilianDate(str) {
   const [datePart, timePart] = str.split(" - ");
-  console.log('datePart:',datePart);
-  console.log('timePart:',timePart);
   if (!datePart || !timePart) return null;
 
   const [day, month, year] = datePart.split("/").map(Number);
