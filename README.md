@@ -71,7 +71,6 @@ Isso iniciará:
 
 ```bash
 # As tabelas serão criadas automaticamente na primeira execução
-# ou execute o script SQL apropriado se disponível
 ```
 
 ### 5. Instale as dependências e inicie a aplicação
@@ -199,29 +198,16 @@ Monitore as filas BullMQ em tempo real:
 http://localhost:3000/admin/queues
 ```
 
-## 🧪 Testes
-
-Execute os testes (quando disponíveis):
-
-```bash
-npm test
-```
-
 ## 📦 Scripts Disponíveis
 
 | Comando | Descrição |
 |---------|-----------|
 | `npm start` | Inicia a aplicação em produção |
 | `npm run dev` | Inicia com hot-reload (nodemon) |
-| `npm test` | Executa os testes |
 
-## 🤝 Contribuição
+## 🔗 Projeto relacionado
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+**[Tasky](https://github.com/samuellucg/Tasky)** — cliente desktop em C#/WPF que consome esta API e sincroniza em tempo real via WebSocket.
 
 ## 📝 Licença
 
