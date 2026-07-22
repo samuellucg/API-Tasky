@@ -23,7 +23,7 @@ API RESTful para gerenciamento de tarefas com integração ao Telegram Bot, noti
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/api-tasky.git
+git clone https://github.com/samuellucg/api-tasky.git
 cd api-tasky
 ```
 
